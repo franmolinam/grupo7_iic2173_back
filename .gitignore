@@ -1,2 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Entornos virtuales
+.venv/
+
+# Variables de entorno
 .env
-__pycache__/.venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# Archivos del sistema
+.DS_Store
+
+# Logs
+*.log
+
+#Credenciales
+<nombre-key>.pem
