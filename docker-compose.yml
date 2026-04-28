@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   api:
     build: .
@@ -12,8 +11,11 @@ services:
       - .env
     environment:
       - DATABASE_URL=${DATABASE_URL}
+    # agregue esto pq la API arranca antes q la DB esté lista
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: always
 
   db:
     image: postgres:15-alpine
@@ -27,6 +29,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # healthcheck para asegurarse de que la base de datos esté lista antes de que la API intente conectarse
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
