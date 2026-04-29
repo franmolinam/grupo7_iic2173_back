@@ -19,6 +19,14 @@ def get_package_by_id(db: Session, package_id: str) -> Optional[Package]:
     """Retorna un paquete por su id."""
     return db.query(Package).filter(Package.id == package_id).first()
 
+def _parse_datetime(value):
+    """Convierte un string ISO 8601 a datetime si es necesario."""
+    if value is None:
+        return datetime.now(timezone.utc)
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    return value
+
 
 def save_package(db: Session, package_data: dict) -> Package:
     """
@@ -33,8 +41,8 @@ def save_package(db: Session, package_data: dict) -> Package:
         origin_id=package_data.get("originId", ""),
         destination_id=package_data.get("destinationId", ""),
         max_hops=package_data.get("maxHops", 0),
-        created_at=package_data.get("createdAt", datetime.now(timezone.utc)),
-        deliver_not_before=package_data.get("deliverNotBefore", datetime.now(timezone.utc)),
+        created_at=_parse_datetime(package_data.get("createdAt")),
+        deliver_not_before=_parse_datetime(package_data.get("deliverNotBefore")),
         meta_content=package_data.get("metaContent"),
         is_meta_encrypted=package_data.get("isMetaEncrypted", False),
         priority_class=package_data.get("priorityClass"),
