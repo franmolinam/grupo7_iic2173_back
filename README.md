@@ -43,8 +43,8 @@ Requisitos Funcionales
 <!-- - RF04 – Entrega de paquetes con validación -->
 Requisitos No Funcionales
 <!-- - RNF01 – Separación Backend / Frontend -->
-<!-- - RNF02 – Backend dockerizado y desplegado en EC2 usando ECR -->
-<!-- - RNF03 – Configuración de Budget Alerts en AWS -->
+- RNF02 – Backend dockerizado y desplegado en EC2 usando ECR
+- RNF03 – Configuración de Budget Alerts en AWS
 <!-- - RNF04 – Implementacion de API Gateway con CORS -->
 <!-- - RNF05 – Comunicación mediante HTTPS -->
 <!-- - RNF06 – Autenticación implementada con Auth0 -->
@@ -65,3 +65,8 @@ Documentación
 - Se utilizó .env para manejo de configuración sensible (no versionado).
 - La arquitectura fue diseñada priorizando separación de responsabilidades entre servicios.
 - Se recomienda levantar primero el entorno local antes de desplegar en AWS.
+
+## Bibliografia
+1. [Python .gitignore template](https://github.com/github/gitignore/blob/main/Python.gitignore)
+2. [Instalación de AWS CLI](https://docs.aws.amazon.com/es_es/cli/latest/userguide/getting-started-install.html)
+3. 
