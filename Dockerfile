@@ -16,5 +16,6 @@ COPY ./src ./src
 # Exponer el puerto
 EXPOSE 8000
 
-# Comando para iniciar el servidor
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Comando para iniciar el servidor en desarrollo
+# 4 worker para evitar que se congele la cola
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
