@@ -16,14 +16,14 @@
 <!-- Cambiar para cuando se tenga la información-->
 - **Nombre del dominio:** api.<miapp>.com
 - **Método de acceso al servidor:**  
-  - Archivo `.pem`: `<nombre-key>.pem`  
+  - Archivo `.pem`: `key-ec2-cityexpress-api.pem`  
   - Permisos:  
     ```bash
-    chmod 400 "<nombre-key>.pem"
+    chmod 400 "key-ec2-cityexpress-api.pem"
     ```
   - Conexión SSH:  
     ```bash
-    ssh -i "<nombre-key>.pem" ubuntu@<ec2-public-dns>
+    ssh -i "key-ec2-cityexpress-api.pem" ubuntu@ec2-13-59-84-29.us-east-2.compute.amazonaws.com
     ```
 
 ---
