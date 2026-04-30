@@ -1,11 +1,19 @@
 import os
+import traceback
 import pika
 import ssl
 import json
 import uuid
 from datetime import datetime, timezone 
-from publisher import publicar_mensaje
+from src.rabbitmq.publisher import publicar_mensaje
 from dotenv import load_dotenv
+from src.handlers.package_handler import (
+    handle_package_received, 
+    handle_package_forwarded, 
+    handle_package_expired
+)
+
+from src.database import SessionLocal
 
 # Cargar variables del .env
 load_dotenv()
@@ -96,11 +104,75 @@ def start_consumer():
                         routing_key=routing_key_destino,
                         message_dict=respuesta
                     )
+
+                    print(f"[*] ACK/NACK enviado a: {routing_key_destino}")
+                
+                # Solo se procesa si el mensaje es de tipo package-transit
+                if mensaje.get("type") == "package-transit":
+                    db = SessionLocal() # Abrir conexion a la DB
+                    try:
+                        cuerpo = mensaje.get("body") or mensaje.get("packageBody", {})
+                        
+                        # Aqui se remplaza la "Z" por "+00:00" para que SQLAlchemy no se caiga
+                        for campo_fecha in ["createdAt", "expiresAt", "deliverNotBefore"]:
+                            if campo_fecha in cuerpo and isinstance(cuerpo[campo_fecha], str) and cuerpo[campo_fecha].endswith("Z"):
+                                cuerpo[campo_fecha] = cuerpo[campo_fecha].replace("Z", "+00:00")
+
+                        # Aqui se llama al package_handler
+                        resultado = handle_package_received(
+                            db=db,
+                            package_body=cuerpo,
+                            received_from=ciudad_origen
+                        )
+                        
+                        accion = resultado["action"]
+                        
+                        # No se reenvia, se queda en la DB para que el Frontend lo entregue.
+                        if accion == "deliver":
+                            print(f"[*] Paquete {resultado['package_id']} es para LSN. Queda pendiente de entrega local.")
+                        
+                        # Pendiente enviar mensaje de expired al auditor central
+                        elif accion == "expire":
+                            print(f"[*] Paquete {resultado['package_id']} expiró (maxHops=0).")
+                            handle_package_expired(db, resultado['package_id'])
+
+                        # Reenvio a otra ciudad
+                        elif accion == "forward":
+                            siguiente_ciudad = resultado["destination_id"].lower()
+                            print(f"[*] Reenviando paquete {resultado['package_id']} hacia {siguiente_ciudad}...")
+                            
+                            # Descuento de maxHops y preparacion
+                            cuerpo_modificado = cuerpo.copy()
+                            cuerpo_modificado["maxHops"] = resultado["max_hops_remaining"]
+                            
+                            paquete_reenvio = {
+                                "idpk": str(uuid.uuid4()),
+                                "msgId": str(uuid.uuid4()),
+                                "type": "package-transit",
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "cityId": CODIGO_CIUDAD, # El origen ahora es la propia ciudad
+                                "body": cuerpo_modificado
+                            }
+                            
+                            # Paquete a la ciudad destino
+                            publicar_mensaje(
+                                channel=ch,
+                                exchange='fulfillment.x',
+                                routing_key=f"city.{siguiente_ciudad}",
+                                message_dict=paquete_reenvio
+                            )
+                            
+                            # Aviso a la DB que el reenvio fue exitoso
+                            # Pendiente: enviar el mensaje de "transit" al auditor central
+                            handle_package_forwarded(db, resultado["package_id"], siguiente_ciudad)
+
+                    finally:
+                        db.close() # Cerrar la sesión de DB
                 
                 # Ack del broker
                 # Una vez procesado, se debe borrar de la cola
                 ch.basic_ack(delivery_tag=method.delivery_tag)
-                print(f"[*] Mensaje procesado. ACK/NACK enviado a: {routing_key_destino}")
+                print(f"[*] Mensaje procesado y retirado de la cola.")
 
             except json.JSONDecodeError:
                 # Caso en que el mensaje no es un JSON valido
@@ -120,7 +192,8 @@ def start_consumer():
         channel.start_consuming()
 
     except Exception as e:
-        print(f"[!] Error al conectar con RabbitMQ: {e}")
+        print(f"[!] Error al conectar con RabbitMQ: {repr(e)}")
+        traceback.print_exc()
 
 # Para probar este script directamente de forma local
 if __name__ == "__main__":
