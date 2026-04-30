@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 from src.handlers.package_handler import (
     handle_package_received, 
     handle_package_forwarded, 
-    handle_package_expired
+    handle_package_expired,
+    handle_distance_table
 )
 
 from src.database import SessionLocal
@@ -107,7 +108,7 @@ def start_consumer():
 
                     print(f"[*] ACK/NACK enviado a: {routing_key_destino}")
                 
-                # Solo se procesa si el mensaje es de tipo package-transit
+                # Se procesa si el mensaje es de tipo package-transit
                 if mensaje.get("type") == "package-transit":
                     db = SessionLocal() # Abrir conexion a la DB
                     try:
@@ -169,6 +170,22 @@ def start_consumer():
                     finally:
                         db.close() # Cerrar la sesión de DB
                 
+                # Se procesa si el mensaje es de tipo tabla de distancias
+                elif mensaje.get("type") == "distance-table":
+                    db = SessionLocal()
+                    try:
+                        print("[*] Procesando actualizacion de tabla de distancias...")
+                        # Se extrae el diccionario de distancias
+                        distancias = mensaje.get("data", {}).get("distances", {})
+                        
+                        if distancias:
+                            handle_distance_table(db, distancias)
+                            print("[*] ¡Tabla de distancias actualizada exitosamente en la base de datos!")
+                        else:
+                            print("[!] Advertencia: El mensaje distance-table no contiene datos validos.")
+                    finally:
+                        db.close()
+                
                 # Ack del broker
                 # Una vez procesado, se debe borrar de la cola
                 ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -179,8 +196,6 @@ def start_consumer():
                 print("[!] Error: El cuerpo del mensaje no es un JSON valido.")
                 # basic_nack al broker le dice que hubo un error
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-        
-        print(f"[*] Conexion exitosa. Esperando mensajes en la cola: {nombre_cola}")
 
         # Iniciar la escucha
         channel.basic_consume(
@@ -188,7 +203,32 @@ def start_consumer():
             on_message_callback=callback, 
             auto_ack=False # Es importante dejar esto en False porque se implementa ACK/NACK manual
         )
-        
+
+        # Se solicita la tabla de distancias al iniciar el consumidor
+        # Despues solo se reciben updates        
+        print("[*] Solicitando tabla de distancias inicial a la central...")
+        request_distancias = {
+            "idpk": str(uuid.uuid4()),
+            "msgId": str(uuid.uuid4()),
+            "type": "request",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "cityId": CODIGO_CIUDAD,
+            "data": {
+                "ask": "distance-table"
+            }
+        }
+
+        # Enviar peticion
+        publicar_mensaje(
+            channel=channel,
+            exchange='fulfillment.x',
+            routing_key='central', 
+            message_dict=request_distancias
+        )
+        print("[*] Peticion de tabla de distancias enviada.")
+
+        print(f"[*] Conexion exitosa. Esperando mensajes en la cola: {nombre_cola}")
+
         channel.start_consuming()
 
     except Exception as e:
