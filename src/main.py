@@ -1,11 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.database import engine
-from src.models import Package, CityConnection, PackageEvent
-
-# Crear tablas si no existen
-from src.database import Base
-Base.metadata.create_all(bind=engine)
+from src.routes.packages import router as packages_router
+from src.routes.connections import router as connections_router
 
 app = FastAPI(
     title="CityExpress API",
@@ -13,10 +9,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS para que el frontend pueda consumir la API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # en producción restringir al dominio del frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,3 +24,6 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok", "city": "LSN"}
+
+app.include_router(packages_router)
+app.include_router(connections_router)
