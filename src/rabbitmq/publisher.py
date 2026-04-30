@@ -1,6 +1,6 @@
 import pika
 import json
-from utils import fibonacci_retry
+from src.rabbitmq.utils import fibonacci_retry
 
 # Aqui se usa el decorador del retry para evitar hacerlo cada vez que se publique un mensaje
 @fibonacci_retry(max_retries=6)
