@@ -6,6 +6,7 @@ import json
 import uuid
 from datetime import datetime, timezone 
 from src.rabbitmq.publisher import publicar_mensaje
+from src.rabbitmq.auditor import enviar_reporte_auditor
 from dotenv import load_dotenv
 from src.handlers.package_handler import (
     handle_package_received, 
@@ -131,11 +132,12 @@ def start_consumer():
                         # No se reenvia, se queda en la DB para que el Frontend lo entregue.
                         if accion == "deliver":
                             print(f"[*] Paquete {resultado['package_id']} es para LSN. Queda pendiente de entrega local.")
+                            enviar_reporte_auditor(ch, resultado['package_id'], "received")
                         
-                        # Pendiente enviar mensaje de expired al auditor central
                         elif accion == "expire":
                             print(f"[*] Paquete {resultado['package_id']} expiró (maxHops=0).")
                             handle_package_expired(db, resultado['package_id'])
+                            enviar_reporte_auditor(ch, resultado['package_id'], "expired")
 
                         # Reenvio a otra ciudad
                         elif accion == "forward":
@@ -164,8 +166,8 @@ def start_consumer():
                             )
                             
                             # Aviso a la DB que el reenvio fue exitoso
-                            # Pendiente: enviar el mensaje de "transit" al auditor central
                             handle_package_forwarded(db, resultado["package_id"], siguiente_ciudad)
+                            enviar_reporte_auditor(ch, resultado['package_id'], "transit", siguiente_ciudad)
 
                     finally:
                         db.close() # Cerrar la sesión de DB
