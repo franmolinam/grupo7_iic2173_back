@@ -28,6 +28,20 @@ def db():
     session.close()
     Base.metadata.drop_all(bind=engine)
 
+def seed_connection(db, destination_code="HGW", enabled=True):
+    """Siembra una conexión habilitada para tests de ruteo."""
+    from src.models.city_connection import CityConnection
+    conn = CityConnection(
+        destination_code=destination_code,
+        destination_name="Test City",
+        distance=1000.0,
+        transport_cost=500.0,
+        enabled=enabled,
+    )
+    db.add(conn)
+    db.commit()
+    return conn
+
 
 def make_package_body(**kwargs):
     """Helper para construir un packageBody como lo manda RabbitMQ."""
@@ -61,6 +75,7 @@ def test_receive_package_for_own_city(db):
 
 def test_receive_package_for_other_city(db):
     """Paquete con destino distinto a LSN y hops disponibles → acción 'forward'."""
+    seed_connection(db, destination_code="HGW", enabled=True)
     body = make_package_body(destinationId="HGW", maxHops=3)
     result = handle_package_received(db, body, received_from="COR")
     assert result["action"] == "forward"
@@ -76,6 +91,7 @@ def test_receive_package_max_hops_zero(db):
 
 def test_receive_package_max_hops_one(db):
     """Paquete con maxHops=1 que no es para LSN → forward con 0 hops restantes."""
+    seed_connection(db, destination_code="HGW", enabled=True)
     body = make_package_body(destinationId="HGW", maxHops=1)
     result = handle_package_received(db, body, received_from="COR")
     assert result["action"] == "forward"
@@ -110,6 +126,7 @@ def test_receive_package_for_lsn_sets_pending_delivery(db):
 
 def test_receive_package_forward_sets_in_transit(db):
     """Paquete a reenviar queda en estado in_transit."""
+    seed_connection(db, destination_code="HGW", enabled=True)
     body = make_package_body(destinationId="HGW", maxHops=3)
     result = handle_package_received(db, body, received_from="COR")
     pkg = db.query(Package).filter_by(id=result["package_id"]).first()
