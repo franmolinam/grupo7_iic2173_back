@@ -14,8 +14,8 @@
 | Elías Ezequiel Sarmiento Quezada | [@elias0006](https://github.com/elias0006) | [eliassarmiento@estudiante.uc.cl](mailto:eliassarmiento@estudiante.uc.cl) |
 
 ## Consideraciones Generales
-<!-- Cambiar para cuando se tenga la información-->
-**Nombre del dominio:** api.<miapp>.com
+**Nombre del dominio:** https://a7oyjzm34g.execute-api.us-east-2.amazonaws.com
+
 **Método de acceso al servidor:**  
   - Archivo .pem: `key-ec2-cityexpress-api.pem`  
   - Permisos:  
@@ -27,7 +27,12 @@
     ssh -i "key-ec2-cityexpress-api.pem" ubuntu@ec2-13-59-84-29.us-east-2.compute.amazonaws.com
     ```
 
----
+## Librerias necesarias
+**Librerias para probar los test:**  
+```bash
+python3 -m pip install pytest
+python3 -m pip install pytest-cov
+```
 
 ## Descripción de la solución
 
@@ -58,8 +63,6 @@ Documentación
 <!-- - RDOC01 – Diagrama UML de Componentes -->
 <!-- - RDOC02 – Monitoreo en New Relic -->
 <!-- - RDOC03 – Procesos de ejecución. -->
-
----
 
 ## Consideraciones Generales
 <!-- Revisar si todo esta bien -->
