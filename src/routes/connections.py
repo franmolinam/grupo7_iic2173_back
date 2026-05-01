@@ -5,7 +5,7 @@ from src.services.package_service import get_all_connections
 
 router = APIRouter(prefix="/connections", tags=["connections"])
 
-@router.get("/")
+@router.get("")
 def list_connections(db: Session = Depends(get_db)):
     """
     RF02: Lista el estado actual de conectividad con cada ciudad.
