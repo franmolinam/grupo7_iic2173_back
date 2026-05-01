@@ -17,5 +17,5 @@ COPY ./src ./src
 EXPOSE 8000
 
 # Comando para iniciar el servidor en desarrollo
-# 4 worker para evitar que se congele la cola
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# 2 worker para evitar que se congele la cola
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
