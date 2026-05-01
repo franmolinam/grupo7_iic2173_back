@@ -11,7 +11,7 @@ from src.handlers.package_handler import handle_package_delivered
 router = APIRouter(prefix="/packages", tags=["packages"])
 
 
-@router.get("/")
+@router.get("")
 def list_packages(
     skip: int = 0,
     limit: int = 100,
