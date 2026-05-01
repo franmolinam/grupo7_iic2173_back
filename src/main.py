@@ -1,14 +1,10 @@
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import os
-from src.database import engine, Base
-from src.models import Package, CityConnection, PackageEvent
 from src.auth_utils import validate_token
+from src.routes.packages import router as packages_router
+from src.routes.connections import router as connections_router
 
-
-# Crear tablas si no existen
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="CityExpress API",
@@ -16,10 +12,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS para que el frontend pueda consumir la API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # en producción restringir al dominio del frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,3 +58,6 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content={"status": exc.status_code, "detail": exc.detail}
     )
+  
+app.include_router(packages_router)
+app.include_router(connections_router)
