@@ -15,51 +15,16 @@ from src.services.package_service import (
     upsert_connections,
     get_package_by_id,
 )
+from src.models.city_connection import CityConnection
+import random
 
 CIUDAD_PROPIA = "LSN"
 
-
 def handle_package_received(db: Session, package_body: dict, received_from: str) -> dict:
-    """
-    Llamar cuando llega un mensaje type='package-transit' a nuestra cola.
-
-    Dev2 debe llamar esta función ANTES de decidir si reenviar o entregar.
-    Retorna un dict con la acción que debe tomarse.
-
-    Args:
-        db:             Sesión de base de datos (obtener con SessionLocal())
-        package_body:   El objeto 'packageBody' del mensaje RabbitMQ (dict)
-        received_from:  cityId de quien nos envió el paquete (o "central")
-
-    Returns:
-        {
-            "action": "deliver" | "forward" | "expire",
-            "package_id": str,
-            "destination_id": str,   # solo si action == "forward"
-        }
-
-    Ejemplo de uso en consumer.py:
-        from src.handlers.package_handler import handle_package_received
-        from src.database import SessionLocal
-
-        def callback(ch, method, properties, body):
-            mensaje = json.loads(body)
-            if mensaje["type"] == "package-transit":
-                db = SessionLocal()
-                try:
-                    result = handle_package_received(
-                        db,
-                        package_body=mensaje["packageBody"],
-                        received_from=mensaje.get("cityId", "central")
-                    )
-                    # result["action"] te dice qué hacer a continuación
-                finally:
-                    db.close()
-    """
     package_data = {**package_body, "receivedFrom": received_from}
     pkg = save_package(db, package_data)
 
-    destination = package_body.get("destinationId")
+    destination = package_body.get("destinationId", "").upper()  # Bug 1 fix
     max_hops = package_body.get("maxHops", 0)
 
     # Caso 1: el paquete es para nuestra ciudad
@@ -72,12 +37,34 @@ def handle_package_received(db: Session, package_body: dict, received_from: str)
         update_package_status(db, pkg.id, "expired", "expired")
         return {"action": "expire", "package_id": pkg.id}
 
-    # Caso 3: hay que reenviar
+    # Caso 3: hay que reenviar — Bug 2 fix
+    # Verificar si hay ruta directa habilitada
+    conexion_directa = db.query(CityConnection).filter_by(
+        destination_code=destination, enabled=True
+    ).first()
+
+    if conexion_directa:
+        ciudad_destino = destination
+    else:
+        # Buscar ciudad aleatoria habilitada que no sea nosotros ni el remitente
+        excluir = {CIUDAD_PROPIA, received_from.upper()}
+        alternativas = db.query(CityConnection).filter(
+            CityConnection.enabled == True,
+            ~CityConnection.destination_code.in_(excluir)
+        ).all()
+
+        if not alternativas:
+            # Sin rutas disponibles → expirar
+            update_package_status(db, pkg.id, "expired", "expired")
+            return {"action": "expire", "package_id": pkg.id}
+
+        ciudad_destino = random.choice(alternativas).destination_code
+
     update_package_status(db, pkg.id, "in_transit", "received")
     return {
         "action": "forward",
         "package_id": pkg.id,
-        "destination_id": destination,
+        "destination_id": ciudad_destino,
         "max_hops_remaining": max_hops - 1,
     }
 
