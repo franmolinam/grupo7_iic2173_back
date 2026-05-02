@@ -45,7 +45,7 @@ Un acceso rapido para hacerlo es Shift + Alt + A -->
 Requisitos Funcionales
 <!-- - RF01 – Visualización de paquetes recibidos -->
 <!-- - RF02 – Visualización de conectividad entre ciudades -->
-<!-- - RF03 – Sistema de ruteo implementado -->
+- RF03 – Sistema de ruteo implementado
 <!-- - RF04 – Entrega de paquetes con validación -->
 Requisitos No Funcionales
 <!-- - RNF01 – Separación Backend / Frontend -->
@@ -58,7 +58,7 @@ Falta implementar el subdominio y tener la url del frontend, ya que una vez teni
 - RNF07 – Validación de tokens mediante Custom Authorizer
 <!-- - RNF08 – Frontend desplegado en S3 + CloudFront -->
 - RNF09 – New Relic: APM y monitoreo de infraestructura
-<!-- - RNF10 – Reinicio automático de contenedores y retry con delay fibonacci -->
+- RNF10 – Reinicio automático de contenedores y retry con delay fibonacci
 Documentación
 <!-- - RDOC01 – Diagrama UML de Componentes -->
 - RDOC02 – Monitoreo en New Relic
