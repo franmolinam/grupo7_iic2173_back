@@ -57,11 +57,11 @@ Falta implementar el subdominio y tener la url del frontend, ya que una vez teni
 - RNF06 – Autenticación implementada con Auth0
 - RNF07 – Validación de tokens mediante Custom Authorizer
 <!-- - RNF08 – Frontend desplegado en S3 + CloudFront -->
-<!-- - RNF09 – New Relic: APM y monitoreo de infraestructura -->
+- RNF09 – New Relic: APM y monitoreo de infraestructura
 <!-- - RNF10 – Reinicio automático de contenedores y retry con delay fibonacci -->
 Documentación
 <!-- - RDOC01 – Diagrama UML de Componentes -->
-<!-- - RDOC02 – Monitoreo en New Relic -->
+- RDOC02 – Monitoreo en New Relic
 <!-- - RDOC03 – Procesos de ejecución. -->
 
 ## Consideraciones Generales
@@ -71,7 +71,7 @@ Documentación
 - La arquitectura fue diseñada priorizando separación de responsabilidades entre servicios.
 - Se recomienda levantar primero el entorno local antes de desplegar en AWS.
 
-## Bibliografia
+## Bibliografía
 1. [Python .gitignore template](https://github.com/github/gitignore/blob/main/Python.gitignore)
 2. [Instalación de AWS CLI](https://docs.aws.amazon.com/es_es/cli/latest/userguide/getting-started-install.html)
 3. [Desarrollo de las API HTTP en API Gateway](https://docs.aws.amazon.com/es_es/apigateway/latest/developerguide/http-api-develop.html)
@@ -79,3 +79,5 @@ Documentación
 5. [Build and Secure a FastAPI Server with Auth0](https://auth0.com/blog/build-and-secure-fastapi-server-with-auth0/#Set-Up-an-Auth0-API)
 6. [Setup Auth0 - FastAPI API](https://auth0.com/docs/quickstart/backend/fastapi)
 7. [JSON Web Key Sets](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-sets)
+8. [New Relic Python Agent Docs](https://docs.newrelic.com/docs/apm/agents/python-agent/getting-started/introduction-new-relic-python/)
+9. [New Relic Infrastructure Monitoring](https://docs.newrelic.com/docs/infrastructure/infrastructure-agent/linux-installation/infra-agent-as-container/)
