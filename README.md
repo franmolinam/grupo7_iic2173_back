@@ -14,8 +14,8 @@
 | Elías Ezequiel Sarmiento Quezada | [@elias0006](https://github.com/elias0006) | [eliassarmiento@estudiante.uc.cl](mailto:eliassarmiento@estudiante.uc.cl) |
 
 ## Consideraciones Generales
-<!-- Cambiar para cuando se tenga la información-->
-**Nombre del dominio:** api.<miapp>.com
+**Nombre del dominio:** https://a7oyjzm34g.execute-api.us-east-2.amazonaws.com
+
 **Método de acceso al servidor:**  
   - Archivo .pem: `key-ec2-cityexpress-api.pem`  
   - Permisos:  
@@ -27,7 +27,12 @@
     ssh -i "key-ec2-cityexpress-api.pem" ubuntu@ec2-13-59-84-29.us-east-2.compute.amazonaws.com
     ```
 
----
+## Librerias necesarias
+**Librerias para probar los test:**  
+```bash
+python3 -m pip install pytest
+python3 -m pip install pytest-cov
+```
 
 ## Descripción de la solución
 
@@ -52,14 +57,12 @@ Falta implementar el subdominio y tener la url del frontend, ya que una vez teni
 - RNF06 – Autenticación implementada con Auth0
 - RNF07 – Validación de tokens mediante Custom Authorizer
 <!-- - RNF08 – Frontend desplegado en S3 + CloudFront -->
-<!-- - RNF09 – New Relic: APM y monitoreo de infraestructura -->
+- RNF09 – New Relic: APM y monitoreo de infraestructura
 <!-- - RNF10 – Reinicio automático de contenedores y retry con delay fibonacci -->
 Documentación
 <!-- - RDOC01 – Diagrama UML de Componentes -->
-<!-- - RDOC02 – Monitoreo en New Relic -->
+- RDOC02 – Monitoreo en New Relic
 <!-- - RDOC03 – Procesos de ejecución. -->
-
----
 
 ## Consideraciones Generales
 <!-- Revisar si todo esta bien -->
@@ -68,7 +71,7 @@ Documentación
 - La arquitectura fue diseñada priorizando separación de responsabilidades entre servicios.
 - Se recomienda levantar primero el entorno local antes de desplegar en AWS.
 
-## Bibliografia
+## Bibliografía
 1. [Python .gitignore template](https://github.com/github/gitignore/blob/main/Python.gitignore)
 2. [Instalación de AWS CLI](https://docs.aws.amazon.com/es_es/cli/latest/userguide/getting-started-install.html)
 3. [Desarrollo de las API HTTP en API Gateway](https://docs.aws.amazon.com/es_es/apigateway/latest/developerguide/http-api-develop.html)
@@ -76,3 +79,5 @@ Documentación
 5. [Build and Secure a FastAPI Server with Auth0](https://auth0.com/blog/build-and-secure-fastapi-server-with-auth0/#Set-Up-an-Auth0-API)
 6. [Setup Auth0 - FastAPI API](https://auth0.com/docs/quickstart/backend/fastapi)
 7. [JSON Web Key Sets](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-sets)
+8. [New Relic Python Agent Docs](https://docs.newrelic.com/docs/apm/agents/python-agent/getting-started/introduction-new-relic-python/)
+9. [New Relic Infrastructure Monitoring](https://docs.newrelic.com/docs/infrastructure/infrastructure-agent/linux-installation/infra-agent-as-container/)
