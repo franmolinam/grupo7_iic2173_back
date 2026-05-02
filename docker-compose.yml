@@ -9,8 +9,7 @@ services:
       - ./src:/app/src
       - ./newrelic.ini:/app/newrelic.ini:ro
     # Reescribe el CMD del dockerfile para desarrollo
-    # command: sh -c "python3 -c 'from src.database import engine, Base; from src.models import Package, CityConnection, PackageEvent; Base.metadata.create_all(bind=engine)' && newrelic-admin run-program uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
-    command: newrelic-admin run-program uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "python3 -c 'from src.database import engine, Base; from src.models import Package, CityConnection, PackageEvent; Base.metadata.create_all(bind=engine)' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
     env_file:
       - .env
     environment:
