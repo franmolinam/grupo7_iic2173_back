@@ -6,3 +6,4 @@ pika
 python-jose 
 python-dotenv
 auth0-fastapi-api
+newrelic
