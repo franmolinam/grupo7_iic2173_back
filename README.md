@@ -46,9 +46,9 @@ Requisitos Funcionales
 <!-- - RF01 – Visualización de paquetes recibidos -->
 <!-- - RF02 – Visualización de conectividad entre ciudades -->
 - RF03 – Sistema de ruteo implementado
-<!-- - RF04 – Entrega de paquetes con validación -->
+- RF04 – Entrega de paquetes con validación: se puede realizar con POST/packages/{id}/deliver con validacion del atributo deliverNotBefore (tiene que permitir su entrega)
 Requisitos No Funcionales
-<!-- - RNF01 – Separación Backend / Frontend -->
+- RNF01 – Separación Backend / Frontend
 - RNF02 – Backend dockerizado y desplegado en EC2 usando ECR
 - RNF03 – Configuración de Budget Alerts en AWS
 - RNF04 – Implementacion de API Gateway con CORS
@@ -62,7 +62,7 @@ Falta implementar el subdominio y tener la url del frontend, ya que una vez teni
 Documentación
 <!-- - RDOC01 – Diagrama UML de Componentes -->
 - RDOC02 – Monitoreo en New Relic
-<!-- - RDOC03 – Procesos de ejecución. -->
+- RDOC03 – Procesos de ejecución.
 
 ## Consideraciones Generales
 <!-- Revisar si todo esta bien -->
