@@ -165,14 +165,14 @@ curl -i -X GET http://localhost:8000/health
 curl -i -X GET http://localhost:8000/packages
 
 # Detalle de un Paquete: Ruta que obtiene el detalle de un paquete.
-# Reemplazar {package_id} copiar un id existente entregado en la ruta anterior.
+# Reemplaza el {package_id} por un id existente entregado en la ruta anterior.
 curl -i -X GET http://localhost:8000/packages/{package_id}
 
 # Estado de Conexiones: Ruta que muestra la tabla de distancias y conectividad con otras ciudades.
 curl -i -X GET http://localhost:8000/connections
 
 # Entrega de Paquete: Ruta que concreta la entrega de un paquete si cumple con la fecha deliverNotBefore.
-# Reemplazar {package_id} copiar un id existente entregado en la ruta anterior.
+# Reemplaza el {package_id} por un id existente entregado en la ruta anterior.
 curl -i -X POST http://localhost:8000/packages/{package_id}/deliver
 
 # Si se pone un paquete que su status=pending_delivery y su deliver_not_before ya pasó, al hacer el curl retorna un mensaje de que fue entregado exitosamente y el paquete con status: delivered. Si luego se vuelve a realizar el mismo endpoint, para el mismo paquete, este retorna status: 400 y dice que el paquete ya fue enviado ("Package already delivered").
