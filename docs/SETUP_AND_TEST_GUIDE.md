@@ -112,28 +112,28 @@ pip install pytest pytest-cov
 Para ejecutar la aplicación localmente, es necesario crear un archivo `.env` en la raíz del repositorio, con las siguientes variables:
 
 ```python
-POSTGRES_USER=grupo7
-POSTGRES_PASSWORD=grupo7_arquisis
-POSTGRES_DB=cityexpress
+POSTGRES_USER=YOUR_DB_USER
+POSTGRES_PASSWORD=YOUR_DB_PASSWORD
+POSTGRES_DB=YOUR_DB_NAME
 
-DATABASE_URL=postgresql://grupo7:grupo7_arquisis@db:5432/cityexpress
+DATABASE_URL=postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@db:5432/YOUR_DB_NAME
 
 # Datos para la conexion al broker
-RABBITMQ_HOST=broker.iic2173.org
-RABBITMQ_PORT=5671
-RABBITMQ_USER=city.lsn
-RABBITMQ_PASSWORD=sh0mxT96I8Ectva6mBUSN3_G
-CODIGO_CIUDAD=lsn
+RABBITMQ_HOST=YOUR_RABBITMQ_HOST
+RABBITMQ_PORT=YOUR_RABBITMQ_PORT
+RABBITMQ_USER=YOUR_RABBITMQ_USER
+RABBITMQ_PASSWORD=YOUR_RABBITMQ_PASSWORD
+CODIGO_CIUDAD=YOUR_CITY_CODE
 
 # Datos del AWS para la conexion del EC2 con el ECR
-API_IMAGE_URI=127621463290.dkr.ecr.us-east-2.amazonaws.com/cityexpress-api
+API_IMAGE_URI=YOUR_API_IMAGE_URI
 
 # Datos de variables para Auth0 y JWK
-AUTH0_DOMAIN=city-express-grupo7.us.auth0.com
-AUTH0_AUDIENCE=https://api.cityexpress.com
+AUTH0_DOMAIN=YOUR_AUTH0_DOMAIN
+AUTH0_AUDIENCE=YOUR_AUTH0_AUDIENCE
 
 # Datos de licencia de New Relic
-NEW_RELIC_LICENSE_KEY=c6df525da7a537698007945f17f1d9df68c1NRAL
+NEW_RELIC_LICENSE_KEY=YOUR_NEW_RELIC_LICENSE_KEY
 ```
 
 ## 2. Testeo de la Aplicación
@@ -179,10 +179,9 @@ curl -i -X POST http://localhost:8000/packages/{package_id}/deliver
 
 # Acceso Privado: Ruta que requiere un Bearer Token configurado mediante Auth0.
 curl -i -X GET http://localhost:8000/api/private \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlBxbWZZRGY5N1BkREwwaXFnQnVIdCJ9.eyJpc3MiOiJodHRwczovL2NpdHktZXhwcmVzcy1ncnVwbzcudXMuYXV0aDAuY29tLyIsInN1YiI6IkxkaW43SjVMVDZ6THlnVmt4UFBtcVhiSnhKRGd6Q1RMQGNsaWVudHMiLCJhdWQiOiJodHRwczovL2FwaS5jaXR5ZXhwcmVzcy5jb20iLCJpYXQiOjE3Nzc3Nzk2NjIsImV4cCI6MTc3Nzg2NjA2MiwiZ3R5IjoiY2xpZW50LWNyZWRlbnRpYWxzIiwiYXpwIjoiTGRpbjdKNUxUNnpMeWdWa3hQUG1xWGJKeEpEZ3pDVEwifQ.HfX3Q0UIwhy0GsM_YIC8dd4G1jz7paejwlniFTt0utL9BCmZLCuqkZChzwZjgz6A9dFVL8QZJgTKNRQD6umE9ONStyBhwKAIE0KyrEllwXdP2Ok-kiOrAPWFvPAyTCf8tbe_u4lNfkqc11am0WYfKFQ01o8qEsQ58nHW7fc5L12im2rlSqJtZ0YoRnEheDwDtaRJe94FK17gzt9dKdf3Yma4QkhTUIref7up7NTUZT4PrdL5trT_PmkXa6zC1r_ilSy1dmUMSpGihoRiUBxalnnMtoCHbUaPT89o2Z88QSipfm9et3SAa2UHGuSufV6jAzVzZ3e6a7Wz7sC9Tsigeg" \
+  -H "Authorization: Bearer eyJ..." \
   -H "Content-Type: application/json"
 ```
-Ten en cuenta que el último comando podría no funcionar si el token está expirado.
 
 ### 2.3 Consumidor
 
