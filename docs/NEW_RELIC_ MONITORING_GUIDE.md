@@ -288,7 +288,12 @@ Agregación de logs de la aplicación mostrando transacciones HTTP registradas e
 
 ![Logs](images/Logs.png)
 
-## 9. Bibliografía
+## 9. Consideraciones
+Algunas modificaciones realizadas a los archivos fueron específicas para probar el monitoreo en desarrollo y podrían diferir de la configuración final utilizada en producción.
+
+Además, para probar el monitoreo es necesario configurar previamente el archivo `.env` con todas las variables de entorno necesarias.
+
+## 10. Bibliografía
 
 1. [New Relic Python Agent Docs](https://docs.newrelic.com/docs/apm/agents/python-agent/getting-started/introduction-new-relic-python/)
 2. [New Relic Infrastructure Monitoring](https://docs.newrelic.com/docs/infrastructure/infrastructure-agent/linux-installation/infra-agent-as-container/)
