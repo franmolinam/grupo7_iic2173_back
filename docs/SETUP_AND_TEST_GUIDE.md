@@ -222,7 +222,7 @@ sudo docker compose build
 sudo docker compose up -d
 ```
 
-Si aun así el puerto no se libera y no parece ser un problema de Docker, puedes inspeccionarlo con el siguiente comando:
+Si aun así el puerto no se libera y no parece ser un problema de Docker ni de postgres, puedes inspeccionarlo con el siguiente comando:
 
 ```bash
 sudo lsof -i :5432
