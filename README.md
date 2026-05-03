@@ -14,8 +14,7 @@
 | Elías Ezequiel Sarmiento Quezada | [@elias0006](https://github.com/elias0006) | [eliassarmiento@estudiante.uc.cl](mailto:eliassarmiento@estudiante.uc.cl) |
 
 ## Consideraciones Generales
-**Nombre del dominio:** https://a7oyjzm34g.execute-api.us-east-2.amazonaws.com
-
+**Nombre del dominio:** https://api.quackpackagemo.me/
 **Método de acceso al servidor:**  
   - Archivo .pem: `key-ec2-cityexpress-api.pem`  
   - Permisos:  
