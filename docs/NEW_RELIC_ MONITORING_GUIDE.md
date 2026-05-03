@@ -69,19 +69,24 @@ En `docker-compose.yml`, agregar el servicio de infraestructura:
 
 ```yaml
 newrelic-infra:
-  image: newrelic/infrastructure:latest
-  container_name: newrelic-infra
-  cap_add:
+image: newrelic/infrastructure:latest
+container_name: newrelic-infra
+cap_add:
     - SYS_PTRACE
-  network_mode: host
-  pid: host
-  privileged: true
-  environment:
+network_mode: host
+pid: host
+privileged: true
+environment:
     - NRIA_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-  volumes:
+    - TINI_SUBREAPER=1
+volumes:
     - "/:/host:ro"
     - "/var/run/docker.sock:/var/run/docker.sock"
-  restart: unless-stopped
+    - "/proc:/host/proc:ro"
+    - "/sys:/host/sys:ro"
+    - "/etc/os-release:/host/etc/os-release:ro"
+restart: unless-stopped
+user: root
 ```
 
 - `NEW_RELIC_CONFIG_FILE` apunta a donde está newrelic.ini
@@ -125,7 +130,6 @@ Debería mostrar 4 contenedores:
 
 ```bash
 sudo docker compose logs newrelic-infra
-sudo docker compose logs newrelic-infra | grep -i docker
 ```
 
 ## 4. Generar Tráfico para Datos
