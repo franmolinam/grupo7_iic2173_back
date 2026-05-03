@@ -14,7 +14,7 @@
 | Elías Ezequiel Sarmiento Quezada | [@elias0006](https://github.com/elias0006) | [eliassarmiento@estudiante.uc.cl](mailto:eliassarmiento@estudiante.uc.cl) |
 
 ## Consideraciones Generales
-**Nombre del dominio:** https://a7oyjzm34g.execute-api.us-east-2.amazonaws.com
+**Nombre del dominio:** https://api.quackpackagemo.me/
 
 **Método de acceso al servidor:**  
   - Archivo .pem: `key-ec2-cityexpress-api.pem`  
@@ -27,13 +27,6 @@
     ssh -i "key-ec2-cityexpress-api.pem" ubuntu@ec2-13-59-84-29.us-east-2.compute.amazonaws.com
     ```
 
-## Librerias necesarias
-**Librerias para probar los test:**  
-```bash
-python3 -m pip install pytest
-python3 -m pip install pytest-cov
-```
-
 ## Descripción de la solución
 
 Esta entrega implementa una arquitectura distribuida basada en microservicios, donde cada ciudad opera como un nodo dentro de la red CityExpress.
@@ -43,17 +36,17 @@ Esta entrega implementa una arquitectura distribuida basada en microservicios, d
 Tambien consideren que algunos son del frontend
 Un acceso rapido para hacerlo es Shift + Alt + A -->
 Requisitos Funcionales
-<!-- - RF01 – Visualización de paquetes recibidos -->
-<!-- - RF02 – Visualización de conectividad entre ciudades -->
+- RF01 – Visualización de paquetes recibidos
+- RF02 – Visualización de conectividad entre ciudades
 - RF03 – Sistema de ruteo implementado
-<!-- - RF04 – Entrega de paquetes con validación -->
+- RF04 – Entrega de paquetes con validación
 Requisitos No Funcionales
 <!-- - RNF01 – Separación Backend / Frontend -->
 - RNF02 – Backend dockerizado y desplegado en EC2 usando ECR
 - RNF03 – Configuración de Budget Alerts en AWS
 - RNF04 – Implementacion de API Gateway con CORS
 Falta implementar el subdominio y tener la url del frontend, ya que una vez tenida deberia activar el Access-Control-Allow-Credentials y modificar el Access-Control-Allow-Origin
-<!-- - RNF05 – Comunicación mediante HTTPS -->
+- RNF05 – Comunicación mediante HTTPS
 - RNF06 – Autenticación implementada con Auth0
 - RNF07 – Validación de tokens mediante Custom Authorizer
 <!-- - RNF08 – Frontend desplegado en S3 + CloudFront -->
@@ -62,12 +55,11 @@ Falta implementar el subdominio y tener la url del frontend, ya que una vez teni
 Documentación
 <!-- - RDOC01 – Diagrama UML de Componentes -->
 - RDOC02 – Monitoreo en New Relic
-<!-- - RDOC03 – Procesos de ejecución. -->
+- RDOC03 – Procesos de ejecución.
 
 ## Consideraciones Generales
-<!-- Revisar si todo esta bien -->
 - El proyecto fue desarrollado utilizando Docker desde el inicio.
-- Se utilizó .env para manejo de configuración sensible (no versionado).
+- Se utilizó solo un .env para el manejo de configuraciones sensibles.
 - La arquitectura fue diseñada priorizando separación de responsabilidades entre servicios.
 - Se recomienda levantar primero el entorno local antes de desplegar en AWS.
 
@@ -81,3 +73,4 @@ Documentación
 7. [JSON Web Key Sets](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-sets)
 8. [New Relic Python Agent Docs](https://docs.newrelic.com/docs/apm/agents/python-agent/getting-started/introduction-new-relic-python/)
 9. [New Relic Infrastructure Monitoring](https://docs.newrelic.com/docs/infrastructure/infrastructure-agent/linux-installation/infra-agent-as-container/)
+10. [Install Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
