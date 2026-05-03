@@ -175,6 +175,8 @@ curl -i -X GET http://localhost:8000/connections
 # Reemplazar {package_id} copiar un id existente entregado en la ruta anterior.
 curl -i -X POST http://localhost:8000/packages/{package_id}/deliver
 
+# Si se pone un paquete que su status=pending_delivery y su deliver_not_before ya pasó, al hacer el curl retorna un mensaje de que fue entregado exitosamente y el paquete con status: delivered. Si luego se vuelve a realizar el mismo endpoint, para el mismo paquete, este retorna status: 400 y dice que el paquete ya fue enviado ("Package already delivered").
+
 # Acceso Privado: Ruta que requiere un Bearer Token configurado mediante Auth0.
 curl -i -X GET http://localhost:8000/api/private \
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlBxbWZZRGY5N1BkREwwaXFnQnVIdCJ9.eyJpc3MiOiJodHRwczovL2NpdHktZXhwcmVzcy1ncnVwbzcudXMuYXV0aDAuY29tLyIsInN1YiI6IkxkaW43SjVMVDZ6THlnVmt4UFBtcVhiSnhKRGd6Q1RMQGNsaWVudHMiLCJhdWQiOiJodHRwczovL2FwaS5jaXR5ZXhwcmVzcy5jb20iLCJpYXQiOjE3Nzc3Nzk2NjIsImV4cCI6MTc3Nzg2NjA2MiwiZ3R5IjoiY2xpZW50LWNyZWRlbnRpYWxzIiwiYXpwIjoiTGRpbjdKNUxUNnpMeWdWa3hQUG1xWGJKeEpEZ3pDVEwifQ.HfX3Q0UIwhy0GsM_YIC8dd4G1jz7paejwlniFTt0utL9BCmZLCuqkZChzwZjgz6A9dFVL8QZJgTKNRQD6umE9ONStyBhwKAIE0KyrEllwXdP2Ok-kiOrAPWFvPAyTCf8tbe_u4lNfkqc11am0WYfKFQ01o8qEsQ58nHW7fc5L12im2rlSqJtZ0YoRnEheDwDtaRJe94FK17gzt9dKdf3Yma4QkhTUIref7up7NTUZT4PrdL5trT_PmkXa6zC1r_ilSy1dmUMSpGihoRiUBxalnnMtoCHbUaPT89o2Z88QSipfm9et3SAa2UHGuSufV6jAzVzZ3e6a7Wz7sC9Tsigeg" \
