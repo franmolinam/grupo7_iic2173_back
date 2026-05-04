@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, func
+from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import Optional
 from src.database import get_db
 from src.services.package_service import (
@@ -26,7 +27,7 @@ def list_packages(
     is_meta_encrypted: Optional[bool] = None,
     priority_class: Optional[str] = None,
     payment: Optional[int] = None,
-    constraints: Optional[dict] = None,
+    constraints: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """

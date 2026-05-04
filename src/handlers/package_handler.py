@@ -1,11 +1,3 @@
-"""
-src/handlers/package_handler.py
-
-Capa intermedia entre el consumer de RabbitMQ y los servicios de base de datos.
-Dev2 (Ingeniero de Mensajería) debe llamar las funciones de este módulo
-desde consumer.py — nunca importar package_service directamente.
-"""
-
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from src.services.package_service import (
@@ -17,6 +9,9 @@ from src.services.package_service import (
 )
 from src.models.city_connection import CityConnection
 import random
+
+# Esto es una capa intermedia entre el consumer de RabbitMQ y los servicios de la bdd
+# desde consumer.py, se debe llamar a las funciones de este módulo para manejar cada tipo de mensaje que llegue del broker
 
 CIUDAD_PROPIA = "LSN"
 

@@ -10,16 +10,16 @@ from src.models.city_connection import CityConnection
 
 # Funciones de Package
 
-# obtener todos los paquetes de LSN
+# Obtener todos los paquetes de LSN
 # puse los 100 primeros para no saturar la memoria, dsp voy a paginar
 def get_all_packages(db: Session, skip: int = 0, limit: int = 100):
     return db.query(Package).offset(skip).limit(limit).all()
 
-# obtener un paquete por su id para el RF de packages/id
+# Obtener un paquete por su id para el RF de packages/id
 def get_package_by_id(db: Session, package_id: str) -> Optional[Package]:
     return db.query(Package).filter(Package.id == package_id).first()
 
-# para los string ISO a datetime (fechas en createdAt y deliverNotBefore)
+# Para los string ISO a datetime (fechas en createdAt y deliverNotBefore)
 def _parse_datetime(value):
     if value is None:
         return datetime.now(timezone.utc)
@@ -27,7 +27,7 @@ def _parse_datetime(value):
         return datetime.fromisoformat(value)
     return value
 
-# guarda un paquete nuevo y si ya existe, retorna ese
+# Guarda un paquete nuevo y si ya existe, retorna ese
 def save_package(db: Session, package_data: dict) -> Package:
     existing = get_package_by_id(db, package_data["id"])
     if existing:
@@ -58,7 +58,7 @@ def save_package(db: Session, package_data: dict) -> Package:
     db.refresh(pkg)
     return pkg
 
-# actualizar el estado del paquete y registrar un evento cada vez que se procesa o se hace alguna acción sobre el
+# Actualizar el estado del paquete y registrar un evento cada vez que se procesa o se hace alguna acción sobre el
 def update_package_status(db: Session, package_id: str, status: str, last_action: str, next_city_id: str = None) -> Optional[Package]:
     pkg = get_package_by_id(db, package_id)
     # si el paquete no existe, retorno None
@@ -87,7 +87,7 @@ def update_package_status(db: Session, package_id: str, status: str, last_action
     db.refresh(pkg)
     return pkg
 
-# para entregar un paquete /deliver
+# Para entregar un paquete /deliver
 def deliver_package(db: Session, package_id: str) -> tuple[Optional[Package], str]:
     # lo busco en la base de datos con su id
     pkg = get_package_by_id(db, package_id)
@@ -114,25 +114,25 @@ def deliver_package(db: Session, package_id: str) -> tuple[Optional[Package], st
     return update_package_status(db, package_id, "delivered", "delivered"), "Package delivered successfully"
 
 
-# para city connections
+# Funciones para city connections
 
+# Obtener todas las conexiones de ciudades para el RF de connections
 def get_all_connections(db: Session):
-    """Retorna todas las conexiones de ciudades."""
     return db.query(CityConnection).all()
 
-
+# Actualizar o insertar las conexiones de ciudades a partir de la tabla de distancias del broker
 def upsert_connections(db: Session, distances: dict):
-    """
-    Actualiza o inserta las conexiones de ciudades
-    a partir de la tabla de distancias del broker.
-    """
+    # recorro las conexiones que me manda el broker por cada ciudad
     for city_code, data in distances.items():
+        # reviso si ya existe una conexión para esa ciudad
         existing = db.query(CityConnection).filter_by(destination_code=city_code).first()
         if existing:
+            # en este caso la actualizo con los nuevos datos que me manda el broker
             existing.destination_name = data.get("destinationName", city_code)
             existing.distance = data.get("distance")
             existing.transport_cost = data.get("transportCost")
             existing.enabled = data.get("enabled", False)
+        # si no la creo
         else:
             conn = CityConnection(
                 destination_code=city_code,
@@ -141,5 +141,6 @@ def upsert_connections(db: Session, distances: dict):
                 transport_cost=data.get("transportCost"),
                 enabled=data.get("enabled", False),
             )
+            # guardo la nueva conexión en la BDD
             db.add(conn)
     db.commit()
