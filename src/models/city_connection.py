@@ -1,14 +1,17 @@
 from sqlalchemy import Column, String, Boolean, Float
 from src.database import Base
 
+# modelo de conexión entre ciudades
 class CityConnection(Base):
     __tablename__ = "city_connections"
 
+    # campos de la conexión entre ciudades
     destination_code = Column(String, primary_key=True)
     destination_name = Column(String, nullable=False)
     distance = Column(Float, nullable=True)
     transport_cost = Column(Float, nullable=True)
     enabled = Column(Boolean, default=False)
 
+    # para debugging
     def __repr__(self):
         return f"<CityConnection dest={self.destination_code} enabled={self.enabled}>"
