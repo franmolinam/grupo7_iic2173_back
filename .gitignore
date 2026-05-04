@@ -1,2 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+
+# Entornos virtuales
+.venv/
+
+# Variables de entorno
 .env
-__pycache__/.venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# Archivos del sistema
+.DS_Store
+
+# Logs
+*.log
+
+#Credenciales
+key-ec2-cityexpress-api.pem

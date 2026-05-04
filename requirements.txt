@@ -4,4 +4,6 @@ sqlalchemy
 psycopg2-binary 
 pika            
 python-jose 
-python-dotenv  
+python-dotenv
+auth0-fastapi-api
+newrelic

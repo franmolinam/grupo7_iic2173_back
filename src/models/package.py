@@ -3,10 +3,12 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from src.database import Base
 
+# modelo de paquete
 class Package(Base):
     __tablename__ = "packages"
 
-    id = Column(String, primary_key=True)  # uuid del paquete
+    # campos que trae el paquete
+    id = Column(String, primary_key=True)
     origin_id = Column(String, nullable=False)
     destination_id = Column(String, nullable=False)
     max_hops = Column(Integer, nullable=False)
@@ -19,6 +21,7 @@ class Package(Base):
     constraints = Column(JSON, nullable=True)
     delivery_strategy = Column(String, nullable=True)
 
+    # campos que tengo que sumar para el seguimiento
     # Estado actual del paquete en nuestra ciudad
     status = Column(String, nullable=False, default="received")
     # última acción realizada sobre el paquete
@@ -28,7 +31,7 @@ class Package(Base):
     # desde qué ciudad nos llegó
     received_from = Column(String, nullable=True)
 
-    # relación con eventos
+    # relación con eventos del paquete
     events = relationship("PackageEvent", back_populates="package")
 
     def __repr__(self):

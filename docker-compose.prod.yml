@@ -1,15 +1,11 @@
-# Es el docker compose de desarrollo
+# Es el docker compose de produccion, usa la imagen de ECR
 services:
   api:
-    build: .
+    # Es el URI del ECR
+    image: ${API_IMAGE_URI}:latest
     container_name: cityexpress_api
     ports:
       - "8000:8000"
-    volumes:
-      - ./src:/app/src
-      - ./newrelic.ini:/app/newrelic.ini:ro
-    # Reescribe el CMD del dockerfile para desarrollo
-    command: sh -c "python3 -c 'from src.database import engine, Base; from src.models import Package, CityConnection, PackageEvent; Base.metadata.create_all(bind=engine)' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
     env_file:
       - .env
     environment:
@@ -18,7 +14,7 @@ services:
       - AUTH0_AUDIENCE=${AUTH0_AUDIENCE}
       - NEW_RELIC_CONFIG_FILE=/app/newrelic.ini
       - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-      - NEW_RELIC_APP_NAME=CityExpress-API-Dev
+      - NEW_RELIC_APP_NAME=CityExpress-API-Prod
     # agregue esto pq la API arranca antes q la DB esté lista
     depends_on:
       db:
@@ -26,11 +22,9 @@ services:
     restart: always
 
   consumer:
-    build: .
+    image: ${API_IMAGE_URI}:latest
     container_name: cityexpress_consumer
     command: python -m src.rabbitmq.consumer
-    volumes:
-      - ./src:/app/src
     env_file:
       - .env
     environment:
@@ -70,14 +64,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # healthcheck para asegurarse de que la base de datos esté lista antes de que la API intente conectarse
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
 
