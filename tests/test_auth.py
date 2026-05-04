@@ -5,11 +5,10 @@ from fastapi.security import HTTPAuthorizationCredentials
 import json
 
 
-# --- Tests de validate_token ---
-
+# para tests async
 @pytest.mark.anyio
 async def test_validate_token_success():
-    """Token válido retorna el payload correctamente."""
+    # test para verificar q token válido retorna el payload correctamente
     mock_payload = {"sub": "user123", "email": "test@test.com"}
     mock_credentials = MagicMock(spec=HTTPAuthorizationCredentials)
     mock_credentials.credentials = "valid.token.here"
@@ -31,7 +30,7 @@ async def test_validate_token_success():
 
 @pytest.mark.anyio
 async def test_validate_token_invalid_raises_401():
-    """Token inválido lanza HTTPException 401."""
+    # test para verificar q token inválido lanza HTTPException 401
     mock_credentials = MagicMock(spec=HTTPAuthorizationCredentials)
     mock_credentials.credentials = "invalid.token"
 
@@ -53,7 +52,7 @@ async def test_validate_token_invalid_raises_401():
 
 @pytest.mark.anyio
 async def test_validate_token_no_matching_key_raises_401():
-    """Si no hay key que coincida con kid, lanza 401."""
+    # test para verificar q si no hay key que coincida con kid, lanza 401
     mock_credentials = MagicMock(spec=HTTPAuthorizationCredentials)
     mock_credentials.credentials = "some.token"
 
@@ -75,7 +74,7 @@ async def test_validate_token_no_matching_key_raises_401():
 
 @pytest.mark.anyio
 async def test_validate_token_urlopen_fails_raises_401():
-    """Si falla la descarga del JWKS, lanza 401."""
+    # test para verificar q si falla la descarga del JWKS, lanza 401
     mock_credentials = MagicMock(spec=HTTPAuthorizationCredentials)
     mock_credentials.credentials = "some.token"
 

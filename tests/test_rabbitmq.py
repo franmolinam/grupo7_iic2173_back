@@ -3,22 +3,23 @@ from unittest.mock import MagicMock, patch, call
 import json
 import uuid
 from datetime import datetime, timezone
-
-# --- Tests de utils (fibonacci_retry) ---
-
 from src.rabbitmq.utils import fibonacci_retry
+from src.rabbitmq.publisher import publicar_mensaje
+from src.rabbitmq.auditor import enviar_reporte_auditor
+from src.rabbitmq.consumer import validar_mensaje
 
+# TESTS UTILIDADES
+
+# test para verificar que si tiene éxito al primer intento no reintenta
 def test_fibonacci_retry_success_first_try():
-    """Función que tiene éxito al primer intento no reintenta."""
     mock_func = MagicMock(return_value="ok")
     decorated = fibonacci_retry(max_retries=3)(mock_func)
     result = decorated()
     assert result == "ok"
     assert mock_func.call_count == 1
 
-
+# test para función que falla 2 veces y luego tiene éxito
 def test_fibonacci_retry_success_after_retries():
-    """Función que falla 2 veces y luego tiene éxito."""
     mock_func = MagicMock(side_effect=[Exception("fallo"), Exception("fallo"), "ok"])
     decorated = fibonacci_retry(max_retries=3)(mock_func)
     with patch("time.sleep"):  # evitar esperas reales
@@ -26,9 +27,8 @@ def test_fibonacci_retry_success_after_retries():
     assert result == "ok"
     assert mock_func.call_count == 3
 
-
+# test para función que siempre falla lanza excepción después de max_retries
 def test_fibonacci_retry_raises_after_max_retries():
-    """Función que siempre falla lanza excepción después de max_retries."""
     mock_func = MagicMock(side_effect=Exception("fallo permanente"))
     mock_func.__name__ = "mock_func"  # fix
     decorated = fibonacci_retry(max_retries=3)(mock_func)
@@ -37,21 +37,18 @@ def test_fibonacci_retry_raises_after_max_retries():
             decorated()
     assert mock_func.call_count == 3
 
-
+# test para ver q el decorador preserva el nombre de la función original
 def test_fibonacci_retry_preserves_function_name():
-    """El decorador preserva el nombre de la función original."""
     def mi_funcion():
         pass
     decorated = fibonacci_retry(max_retries=3)(mi_funcion)
     assert decorated.__name__ == "mi_funcion"
 
 
-# --- Tests de publisher ---
+# TESTS PUBLISHER
 
-from src.rabbitmq.publisher import publicar_mensaje
-
+# test para ver que publicar_mensaje llama a basic_publish con los parámetros correctos
 def test_publicar_mensaje_success():
-    """publicar_mensaje llama a basic_publish con los parámetros correctos."""
     mock_channel = MagicMock()
     mensaje = {"type": "ack", "msgId": str(uuid.uuid4())}
 
@@ -65,9 +62,8 @@ def test_publicar_mensaje_success():
         mandatory=True
     )
 
-
+# test para ver que publicar_mensaje reintenta si basic_publish falla
 def test_publicar_mensaje_retries_on_failure():
-    """publicar_mensaje reintenta si basic_publish falla."""
     mock_channel = MagicMock()
     mock_channel.basic_publish.side_effect = [Exception("fallo"), None]
     mensaje = {"type": "test"}
@@ -78,12 +74,10 @@ def test_publicar_mensaje_retries_on_failure():
     assert mock_channel.basic_publish.call_count == 2
 
 
-# --- Tests de auditor ---
+# TESTS AUDITOR
 
-from src.rabbitmq.auditor import enviar_reporte_auditor
-
+# test para ver que enviar_reporte_auditor envía reporte tipo 'received' a central
 def test_auditor_received():
-    """enviar_reporte_auditor envía reporte tipo 'received' a central."""
     mock_channel = MagicMock()
     package_id = str(uuid.uuid4())
 
@@ -95,9 +89,8 @@ def test_auditor_received():
         assert mensaje["type"] == "received"
         assert mensaje["pkgId"] == package_id
 
-
+# test para verificar que enviar_reporte_auditor envía reporte tipo 'expired'
 def test_auditor_expired():
-    """enviar_reporte_auditor envía reporte tipo 'expired'."""
     mock_channel = MagicMock()
     package_id = str(uuid.uuid4())
 
@@ -107,9 +100,8 @@ def test_auditor_expired():
         mensaje = args[1]["message_dict"] if args[1] else args[0][3]
         assert mensaje["type"] == "expired"
 
-
+# test para verificar que enviar_reporte_auditor incluye nextCityId para tipo 'transit'
 def test_auditor_transit_includes_next_city():
-    """enviar_reporte_auditor incluye nextCityId para tipo 'transit'."""
     mock_channel = MagicMock()
     package_id = str(uuid.uuid4())
 
@@ -120,9 +112,8 @@ def test_auditor_transit_includes_next_city():
         assert mensaje["type"] == "transit"
         assert mensaje["data"]["nextCityId"] == "HGW"
 
-
+# test para verificar que enviar_reporte_auditor incluye nextCityId para tipo 'transit-redirect'
 def test_auditor_transit_redirect_includes_next_city():
-    """enviar_reporte_auditor incluye nextCityId para tipo 'transit-redirect'."""
     mock_channel = MagicMock()
     package_id = str(uuid.uuid4())
 
@@ -132,9 +123,8 @@ def test_auditor_transit_redirect_includes_next_city():
         mensaje = args[1]["message_dict"] if args[1] else args[0][3]
         assert mensaje["data"]["nextCityId"] == "COR"
 
-
+# test para verificar que enviar_reporte_auditor siempre envía a la central
 def test_auditor_sends_to_central():
-    """enviar_reporte_auditor siempre envía a la central."""
     mock_channel = MagicMock()
 
     with patch("src.rabbitmq.auditor.publicar_mensaje") as mock_pub:
@@ -144,12 +134,10 @@ def test_auditor_sends_to_central():
         assert routing_key == "central"
 
 
-# --- Tests de consumer (callback) ---
+# TESTS CONSUMER (callback)
 
-from src.rabbitmq.consumer import validar_mensaje
-
+# test para verificar que el mensaje con todos los campos requeridos es válido
 def test_validar_mensaje_valido():
-    """Mensaje con todos los campos requeridos es válido."""
     mensaje = {
         "idpk": str(uuid.uuid4()),
         "msgId": str(uuid.uuid4()),
@@ -158,9 +146,8 @@ def test_validar_mensaje_valido():
     }
     assert validar_mensaje(mensaje) == True
 
-
+# test para verificar que el mensaje sin campo requerido no es válido
 def test_validar_mensaje_falta_campo():
-    """Mensaje sin campo requerido no es válido."""
     mensaje = {
         "msgId": str(uuid.uuid4()),
         "type": "package-transit",
@@ -168,14 +155,12 @@ def test_validar_mensaje_falta_campo():
     }
     assert validar_mensaje(mensaje) == False
 
-
+# test para verificar que el mensaje vacío no es válido
 def test_validar_mensaje_vacio():
-    """Mensaje vacío no es válido."""
     assert validar_mensaje({}) == False
 
-
+# test para verificar que los 4 campos requeridos son necesarios
 def test_validar_mensaje_todos_los_campos():
-    """Verifica que los 4 campos requeridos son necesarios."""
     campos = ["idpk", "msgId", "type", "timestamp"]
     mensaje_completo = {c: "valor" for c in campos}
     for campo in campos:

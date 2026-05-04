@@ -3,13 +3,13 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.services.package_service import get_all_connections
 
+# Router para los endpoints de conexiones entre ciudades
 router = APIRouter(prefix="/connections", tags=["connections"])
 
+# listar estado conexiones entre ciudades
 @router.get("")
 def list_connections(db: Session = Depends(get_db)):
-    """
-    RF02: Lista el estado actual de conectividad con cada ciudad.
-    """
+    # listar todas las conexiones entre ciudades  (deberían ser las 16 q hay)
     connections = get_all_connections(db)
     return {
         "total": len(connections),

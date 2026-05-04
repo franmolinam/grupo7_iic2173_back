@@ -12,6 +12,7 @@ from src.models.package_event import PackageEvent
 # DB en memoria para tests
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
+# fixture para la sesión de DB en tests
 @pytest.fixture
 def db():
     engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
@@ -22,9 +23,8 @@ def db():
     session.close()
     Base.metadata.drop_all(bind=engine)
 
-
+# helper para crear paquetes de prueba
 def make_package(**kwargs):
-    """Helper para crear paquetes de prueba."""
     defaults = {
         "id": str(uuid.uuid4()),
         "origin_id": "COR",
@@ -38,8 +38,9 @@ def make_package(**kwargs):
     return Package(**defaults)
 
 
-# --- Tests de Package ---
+# TEST DE PACKAGE
 
+# test para crear un paquete y verificar que se guarda correctamente
 def test_create_package(db):
     pkg = make_package()
     db.add(pkg)
@@ -48,14 +49,14 @@ def test_create_package(db):
     assert result is not None
     assert result.status == "received"
 
-
+# test para verificar que el status por defecto de un paquete es "received"
 def test_package_default_status(db):
     pkg = make_package()
     db.add(pkg)
     db.commit()
     assert pkg.status == "received"
 
-
+# test para actualizar el status de un paquete y verificar que se actualiza correctamente
 def test_update_package_status(db):
     pkg = make_package()
     db.add(pkg)
@@ -67,8 +68,9 @@ def test_update_package_status(db):
     assert result.status == "delivered"
 
 
-# --- Tests de CityConnection ---
+# TEST DE CITY CONNECTION
 
+# test para crear una conexión entre ciudades y verificar que se guarda correctamente
 def test_create_city_connection(db):
     conn = CityConnection(
         destination_code="COR",
@@ -83,7 +85,7 @@ def test_create_city_connection(db):
     assert result is not None
     assert result.enabled == True
 
-
+# test para verificar que el campo enabled de una conexión entre ciudades se guarda correctamente
 def test_city_connection_disabled(db):
     conn = CityConnection(
         destination_code="HGW",
@@ -96,8 +98,9 @@ def test_city_connection_disabled(db):
     assert result.enabled == False
 
 
-# --- Tests de PackageEvent ---
+# TEST DE EVENTOS DE LOS PAQUETES
 
+# test para crear un evento de paquete y verificar que se guarda correctamente
 def test_create_package_event(db):
     pkg = make_package()
     db.add(pkg)
@@ -116,7 +119,7 @@ def test_create_package_event(db):
     assert result is not None
     assert result.event_type == "received"
 
-
+# test para verificar la relación entre paquetes y eventos (un paquete puede tener varios eventos asociados)
 def test_package_event_relationship(db):
     pkg = make_package()
     db.add(pkg)
