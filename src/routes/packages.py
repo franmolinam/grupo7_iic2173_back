@@ -9,8 +9,8 @@ from src.services.package_service import (
 )
 from src.handlers.package_handler import handle_package_delivered
 
+# Router para los endpoints de paquetes
 router = APIRouter(prefix="/packages", tags=["packages"])
-
 
 @router.get("")
 def list_packages(
@@ -30,14 +30,12 @@ def list_packages(
     constraints: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """
-    RF01: Lista todos los paquetes recibidos por LSN.
-    Permite filtrar por status, origen y destino.
-    """
+    # listar todos los paquetes recibidos
     from src.models.package import Package
     skip = (page - 1) * limit
     query = db.query(Package)
 
+    # filtros que me manden como query params
     if payment is not None:
         query = query.filter(Package.payment == payment)
     if priority_class:
@@ -59,8 +57,10 @@ def list_packages(
     if constraints:
         query = query.filter(Package.constraints.contains(constraints))
 
+    # pagino los resultados
     packages = query.offset(skip).limit(limit).all()
 
+    # retorno el total de paquetes y la lista de paquetes con todos los campos
     return {
         "total": len(packages),
         "packages": [
@@ -84,22 +84,19 @@ def list_packages(
         ]
     }
 
-
+# para el endpoint de packages/id, retorno el detalle de un paquete específico, con todos los campos que tengo en la base de datos
 @router.get("/{package_id}")
 def get_package(package_id: str, db: Session = Depends(get_db)):
-    """Retorna el detalle de un paquete específico."""
+    # busco por id 
     pkg = get_package_by_id(db, package_id)
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
     return pkg
 
-
+# endpoint de packages/id/deliver para concretar la entrega de un paquete, validando deliverNotBefore
 @router.post("/{package_id}/deliver")
 def deliver_package(package_id: str, db: Session = Depends(get_db)):
-    """
-    RF04: Concreta la entrega de un paquete.
-    Valida deliverNotBefore e idempotencia.
-    """
+    # manejo la entrega del paquete con la función que tengo en el handler, que me devuelve el paquete actualizado y un mensaje de lo que pasó
     pkg, msg = handle_package_delivered(db, package_id)
 
     if pkg is None:

@@ -5,13 +5,14 @@ from src.auth_utils import validate_token
 from src.routes.packages import router as packages_router
 from src.routes.connections import router as connections_router
 
-
+# inicialización de la app
 app = FastAPI(
     title="CityExpress API",
     description="Entrega 1 proyecto Arquisis - Los Santos (LSN)",
     version="1.0.0"
 )
 
+# CORS para permitir solicitudes desde el frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://eliasapi.me"],
@@ -27,6 +28,7 @@ app.add_middleware(
 def read_root():
     return {"message": "¡Bienvenido a CityExpress - Los Santos (LSN)!"}
 
+# Endpoint de health check para verificar que la app está corriendo y responde correctamente
 @app.get("/health")
 def health_check():
     return {"status": "ok", "city": "LSN"}
