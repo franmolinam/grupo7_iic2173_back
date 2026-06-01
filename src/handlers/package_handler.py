@@ -6,6 +6,7 @@ from src.services.package_service import (
     deliver_package,
     upsert_connections,
     get_package_by_id,
+    get_all_connections
 )
 from src.models.city_connection import CityConnection
 import random
@@ -81,10 +82,24 @@ def handle_package_forwarded(db: Session, package_id: str, next_city_id: str) ->
 def handle_package_expired(db: Session, package_id: str) -> None:
     update_package_status(db, package_id, "expired", "expired")
 
-# Manejar paquete redirigido (cuando no hay ruta directa y elijo una ciudad alternativa para reenviar el paquete, lo marco como redirigido)
+# Manejar actualizacion de tabla de distancias/costos
 def handle_distance_table(db: Session, distances: dict) -> None:
     upsert_connections(db, distances)
 
 # Llamar cuando el frontend solicita concretar una entrega (RF04).
 def handle_package_delivered(db: Session, package_id: str) -> tuple:
     return deliver_package(db, package_id)
+
+# Leer las conexiones de la DB local y enviarlas en un mensaje 'cost-update' a otras ciudades.
+def get_local_distance_table(db: Session) -> dict:
+    conexiones = get_all_connections(db)
+    distances = {}
+    for conn in conexiones:
+        distances[conn.destination_code] = {
+            "destinationCode": conn.destination_code,
+            "destinationName": conn.destination_name,
+            "distance": conn.distance,
+            "transportCost": conn.transport_cost,
+            "enabled": conn.enabled
+        }
+    return distances

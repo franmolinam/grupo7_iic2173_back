@@ -12,7 +12,8 @@ from src.handlers.package_handler import (
     handle_package_received, 
     handle_package_forwarded, 
     handle_package_expired,
-    handle_distance_table
+    handle_distance_table,
+    get_local_distance_table
 )
 
 from src.database import SessionLocal
@@ -172,19 +173,74 @@ def start_consumer():
                     finally:
                         db.close() # Cerrar la sesión de DB
                 
-                # Se procesa si el mensaje es de tipo tabla de distancias
-                elif mensaje.get("type") == "distance-table":
+                # Se procesa si el mensaje es de tipo cost-update
+                elif mensaje.get("type") == "cost-update":
                     db = SessionLocal()
                     try:
-                        print("[*] Procesando actualizacion de tabla de distancias...")
-                        # Se extrae el diccionario de distancias
+                        print("[*] Procesando actualizacion de tabla de distancias/costos...")
+                        # Primero se extrae el diccionario de distancias
                         distancias = mensaje.get("data", {}).get("distances", {})
                         
                         if distancias:
                             handle_distance_table(db, distancias)
-                            print("[*] ¡Tabla de distancias actualizada exitosamente en la base de datos!")
+                            print("[*] Tabla de distancias actualizada exitosamente en la base de datos")
+                            
+                            # RF06: Si la tabla viene de la central, se piden la tablas de las demas ciudades
+                            if ciudad_origen.lower() == "central":
+                                print("[*] Nueva tabla de la central. Solicitando tablas a las otras ciudades...")
+                                request_distancias = {
+                                    "idpk": str(uuid.uuid4()),
+                                    "msgId": str(uuid.uuid4()),
+                                    "type": "request",
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "cityId": CODIGO_CIUDAD,
+                                    "data": {
+                                        "ask": "distance-table"
+                                    }
+                                }
+                                
+                                # Luego se itera sobre las ciudades de la tabla guardada para enviarles el request
+                                for destino in distancias.keys():
+                                    if destino.upper() != CODIGO_CIUDAD.upper():
+                                        publicar_mensaje(
+                                            channel=ch,
+                                            exchange='fulfillment.x',
+                                            routing_key=f"city.{destino.lower()}",
+                                            message_dict=request_distancias
+                                        )
                         else:
-                            print("[!] Advertencia: El mensaje distance-table no contiene datos validos.")
+                            print("[!] Advertencia: El mensaje cost-update no contiene datos validos.")
+                    finally:
+                        db.close()
+                
+                # Cuando otra ciudad pide la tabla de distancias
+                elif mensaje.get("type") == "request" and mensaje.get("data", {}).get("ask") == "distance-table":
+                    db = SessionLocal()
+                    try:
+                        print(f"[*] Solicitud de tabla recibida de: {ciudad_origen}. Preparando respuesta...")
+                        # Primero se obtiene la tabla local
+                        local_distances = get_local_distance_table(db)
+                        
+                        # Se arma el mensaje de respuesta tipo cost-update
+                        respuesta_costos = {
+                            "idpk": str(uuid.uuid4()),
+                            "msgId": str(uuid.uuid4()),
+                            "type": "cost-update",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "cityId": CODIGO_CIUDAD,
+                            "data": {
+                                "distances": local_distances
+                            }
+                        }
+                        
+                        # Se envia directamente a la ciudad que la pidio
+                        publicar_mensaje(
+                            channel=ch,
+                            exchange='fulfillment.x',
+                            routing_key=f"city.{ciudad_origen.lower()}",
+                            message_dict=respuesta_costos
+                        )
+                        print(f"[*] Tabla de distancias ha sido enviada a {ciudad_origen}.")
                     finally:
                         db.close()
                 
