@@ -1,0 +1,30 @@
+service: cityexpress-jobsmaster
+
+provider:
+  name: aws
+  runtime: python3.10
+  region: us-east-2   # O la región que estén usando en AWS
+  httpApi:
+    cors: true # Esto es necesario para el frontend
+
+functions:
+  heartbeat:
+    handler: handler.heartbeat
+    events:
+      - httpApi:
+          path: /heartbeat
+          method: get
+
+  createJob:
+    handler: handler.create_job
+    events:
+      - httpApi:
+          path: /job
+          method: post
+
+  getJob:
+    handler: handler.get_job
+    events:
+      - httpApi:
+          path: /job/{id}
+          method: get
