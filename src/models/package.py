@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, JSON
+from sqlalchemy import Column, ForeignKey, String, Integer, DateTime, Boolean, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from src.database import Base
@@ -20,6 +20,7 @@ class Package(Base):
     payment = Column(Integer, nullable=True)
     constraints = Column(JSON, nullable=True)
     delivery_strategy = Column(String, nullable=True)
+    shipment_request_id = Column(String, ForeignKey("shipment_requests.id"), nullable=True)
 
     # campos que tengo que sumar para el seguimiento
     # Estado actual del paquete en nuestra ciudad
@@ -33,6 +34,7 @@ class Package(Base):
 
     # relación con eventos del paquete
     events = relationship("PackageEvent", back_populates="package")
+    shipment_request = relationship("ShipmentRequest", back_populates="package")
 
     def __repr__(self):
         return f"<Package id={self.id} status={self.status}>"

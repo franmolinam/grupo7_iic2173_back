@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from src.auth_utils import validate_token
 from src.routes.packages import router as packages_router
 from src.routes.connections import router as connections_router
+from src.routes.shipments import router as shipments_router
 
 # inicialización de la app
 app = FastAPI(
@@ -63,3 +64,4 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
   
 app.include_router(packages_router)
 app.include_router(connections_router)
+app.include_router(shipments_router)
