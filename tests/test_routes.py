@@ -11,6 +11,9 @@ from src.main import app
 from src.database import Base, get_db
 from src.models.package import Package
 from src.models.city_connection import CityConnection
+from unittest.mock import patch
+from src.models.shipment_request import ShipmentRequest
+from src.auth_utils import validate_token
 
 # Archivo temporal nuevo por cada test
 @pytest.fixture
@@ -29,7 +32,11 @@ def client():
         finally:
             db.close()
 
+    def override_validate_token():
+        return {"sub": "auth0|testuser"}
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[validate_token] = override_validate_token
 
     # guardo SessionLocal para los seeds
     client_obj = TestClient(app)
@@ -250,3 +257,90 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+MOCK_ROUTE = {
+    "status": "done",
+    "routeMetricCost": 12000,
+    "hops": ["LSN", "TRA", "HGW"],
+    "hopCount": 2,
+}
+
+# test para verificar que POST /shipments retorna 201 con cotización completa
+def test_create_shipment_ok(client):
+    with patch("src.routes.shipments.get_quotation", return_value={
+        "criteria": "price",
+        "route_metric_cost": 12000,
+        "hops_count": 2,
+        "next_hop": "TRA",
+        "full_path": ["LSN", "TRA", "HGW"],
+        "fprice": 1.0,
+        "final_price": 36000,
+    }):
+        response = client.post("/shipments", json={
+            "destination_id": "HGW",
+            "height": 100,
+            "width": 100,
+            "depth": 100,
+            "criteria": "price",
+            "max_hops": 3,
+        })
+        assert response.status_code == 201
+        data = response.json()
+        assert data["status"] == "quoted"
+        assert data["final_price"] == 36000
+        assert data["next_hop"] == "TRA"
+
+# test para verificar que dimensiones inválidas retornan 400
+def test_create_shipment_dimensiones_invalidas(client):
+    with patch("src.routes.shipments.get_quotation", side_effect=ValueError("Las dimensiones superan el máximo")):
+        response = client.post("/shipments", json={
+            "destination_id": "HGW",
+            "height": 1000,
+            "width": 1000,
+            "depth": 1001,
+            "criteria": "price",
+            "max_hops": 3,
+        })
+        assert response.status_code == 400
+        assert "dimensiones" in response.json()["detail"]
+
+# test para verificar que ciudad no alcanzable retorna 400
+def test_create_shipment_ciudad_no_alcanzable(client):
+    with patch("src.routes.shipments.get_quotation", side_effect=ValueError("no es alcanzable")):
+        response = client.post("/shipments", json={
+            "destination_id": "XYZ",
+            "height": 10,
+            "width": 10,
+            "depth": 10,
+            "criteria": "price",
+            "max_hops": 3,
+        })
+        assert response.status_code == 400
+        assert "alcanzable" in response.json()["detail"]
+
+# test para verificar que maxHops insuficiente retorna 400
+def test_create_shipment_max_hops_insuficiente(client):
+    with patch("src.routes.shipments.get_quotation", side_effect=ValueError("maxHops insuficiente")):
+        response = client.post("/shipments", json={
+            "destination_id": "HGW",
+            "height": 10,
+            "width": 10,
+            "depth": 10,
+            "criteria": "price",
+            "max_hops": 1,
+        })
+        assert response.status_code == 400
+        assert "maxHops" in response.json()["detail"]
+
+# test para verificar que criteria inválido retorna 422
+def test_create_shipment_criteria_invalido(client):
+        response = client.post("/shipments", json={
+            "destination_id": "HGW",
+            "height": 10,
+            "width": 10,
+            "depth": 10,
+            "criteria": "velocidad",
+            "max_hops": 3,
+        })
+        assert response.status_code == 422
