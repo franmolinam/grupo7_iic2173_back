@@ -121,11 +121,13 @@ def get_all_connections(db: Session):
     return db.query(CityConnection).all()
 
 # Actualizar o insertar las conexiones de ciudades a partir de la tabla de distancias del broker
-def upsert_connections(db: Session, distances: dict):
+def upsert_connections(db: Session, source_code: str,distances: dict):
     # recorro las conexiones que me manda el broker por cada ciudad
     for city_code, data in distances.items():
         # reviso si ya existe una conexión para esa ciudad
-        existing = db.query(CityConnection).filter_by(destination_code=city_code).first()
+        existing = db.query(CityConnection).filter_by(
+            source_code=source_code,
+            destination_code=city_code).first()
         if existing:
             # en este caso la actualizo con los nuevos datos que me manda el broker
             existing.destination_name = data.get("destinationName", city_code)
@@ -135,6 +137,7 @@ def upsert_connections(db: Session, distances: dict):
         # si no la creo
         else:
             conn = CityConnection(
+                source_code=source_code,
                 destination_code=city_code,
                 destination_name=data.get("destinationName", city_code),
                 distance=data.get("distance"),

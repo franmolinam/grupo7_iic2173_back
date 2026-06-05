@@ -178,10 +178,13 @@ def start_consumer():
                     db = SessionLocal()
                     try:
                         print("[*] Procesando actualizacion de tabla de distancias/costos...")
-                        # Primero se extrae el diccionario de distancias
+                        # Primero se obtiene el origen del mensaje
+                        origen = mensaje.get("cityId")
+
+                        # Luego se extrae el diccionario de distancias
                         distancias = mensaje.get("data", {}).get("distances", {})
                         
-                        if distancias:
+                        if distancias and origen:
                             handle_distance_table(db, distancias)
                             print("[*] Tabla de distancias actualizada exitosamente en la base de datos")
                             

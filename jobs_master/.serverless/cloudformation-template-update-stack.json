@@ -20,6 +20,12 @@
         "LogGroupName": "/aws/lambda/cityexpress-jobsmaster-dev-getJob"
       }
     },
+    "RouteWorkerLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/cityexpress-jobsmaster-dev-routeWorker"
+      }
+    },
     "IamRoleLambdaExecution": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -77,6 +83,13 @@
                       "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/cityexpress-jobsmaster-dev*:*:*"
                     }
                   ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": "*"
                 }
               ]
             }
@@ -103,13 +116,20 @@
       "Properties": {
         "Code": {
           "S3Bucket": "serverless-framework-deployments-us-east-2-2f7f93bc-39a3",
-          "S3Key": "serverless/cityexpress-jobsmaster/dev/1780354623069-2026-06-01T22:57:03.069Z/cityexpress-jobsmaster.zip"
+          "S3Key": "serverless/cityexpress-jobsmaster/dev/1780615123198-2026-06-04T23:18:43.198Z/cityexpress-jobsmaster.zip"
         },
         "Handler": "handler.heartbeat",
         "Runtime": "python3.10",
         "FunctionName": "cityexpress-jobsmaster-dev-heartbeat",
         "MemorySize": 1024,
-        "Timeout": 6,
+        "Timeout": 20,
+        "Environment": {
+          "Variables": {
+            "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+            "WORKER_FUNCTION_NAME": "cityexpress-jobsmaster-dev-routeWorker",
+            "DATABASE_URL_SERVERLESS": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress"
+          }
+        },
         "Role": {
           "Fn::GetAtt": [
             "IamRoleLambdaExecution",
@@ -126,13 +146,20 @@
       "Properties": {
         "Code": {
           "S3Bucket": "serverless-framework-deployments-us-east-2-2f7f93bc-39a3",
-          "S3Key": "serverless/cityexpress-jobsmaster/dev/1780354623069-2026-06-01T22:57:03.069Z/cityexpress-jobsmaster.zip"
+          "S3Key": "serverless/cityexpress-jobsmaster/dev/1780615123198-2026-06-04T23:18:43.198Z/cityexpress-jobsmaster.zip"
         },
         "Handler": "handler.create_job",
         "Runtime": "python3.10",
         "FunctionName": "cityexpress-jobsmaster-dev-createJob",
         "MemorySize": 1024,
-        "Timeout": 6,
+        "Timeout": 20,
+        "Environment": {
+          "Variables": {
+            "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+            "WORKER_FUNCTION_NAME": "cityexpress-jobsmaster-dev-routeWorker",
+            "DATABASE_URL_SERVERLESS": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress"
+          }
+        },
         "Role": {
           "Fn::GetAtt": [
             "IamRoleLambdaExecution",
@@ -149,13 +176,20 @@
       "Properties": {
         "Code": {
           "S3Bucket": "serverless-framework-deployments-us-east-2-2f7f93bc-39a3",
-          "S3Key": "serverless/cityexpress-jobsmaster/dev/1780354623069-2026-06-01T22:57:03.069Z/cityexpress-jobsmaster.zip"
+          "S3Key": "serverless/cityexpress-jobsmaster/dev/1780615123198-2026-06-04T23:18:43.198Z/cityexpress-jobsmaster.zip"
         },
         "Handler": "handler.get_job",
         "Runtime": "python3.10",
         "FunctionName": "cityexpress-jobsmaster-dev-getJob",
         "MemorySize": 1024,
-        "Timeout": 6,
+        "Timeout": 20,
+        "Environment": {
+          "Variables": {
+            "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+            "WORKER_FUNCTION_NAME": "cityexpress-jobsmaster-dev-routeWorker",
+            "DATABASE_URL_SERVERLESS": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress"
+          }
+        },
         "Role": {
           "Fn::GetAtt": [
             "IamRoleLambdaExecution",
@@ -167,34 +201,74 @@
         "GetJobLogGroup"
       ]
     },
-    "HeartbeatLambdaVersionpDdbadrJIwOg2hw4ShmXAE5atYlVjdmZJk4Qe9KEYI": {
+    "RouteWorkerLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "serverless-framework-deployments-us-east-2-2f7f93bc-39a3",
+          "S3Key": "serverless/cityexpress-jobsmaster/dev/1780615123198-2026-06-04T23:18:43.198Z/cityexpress-jobsmaster.zip"
+        },
+        "Handler": "worker.calculate_route",
+        "Runtime": "python3.10",
+        "FunctionName": "cityexpress-jobsmaster-dev-routeWorker",
+        "MemorySize": 1024,
+        "Timeout": 20,
+        "Environment": {
+          "Variables": {
+            "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+            "WORKER_FUNCTION_NAME": "cityexpress-jobsmaster-dev-routeWorker",
+            "DATABASE_URL_SERVERLESS": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress"
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "RouteWorkerLogGroup"
+      ]
+    },
+    "HeartbeatLambdaVersionc4nnhs0KVo84wJNrNbSkSg5vi3kwpugcVuJmoeBE": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "HeartbeatLambdaFunction"
         },
-        "CodeSha256": "TIJ4sGKLtD1HWoy9bTw7g99+Atrsr6uNZt1CzXE02Ac="
+        "CodeSha256": "50+xKQ+ZGb1FW0JBCTt5remPctrPS+dmsxL5KijsAQU="
       }
     },
-    "CreateJobLambdaVersionNCQcB23YLNoQPiicjfejZxQvJeza1rArGxg5C0uvJtk": {
+    "CreateJobLambdaVersionEQ3dZHYKSRT9hxiMPDEvBvcqNVdtKgxXNV1UZeNVg": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "CreateJobLambdaFunction"
         },
-        "CodeSha256": "TIJ4sGKLtD1HWoy9bTw7g99+Atrsr6uNZt1CzXE02Ac="
+        "CodeSha256": "50+xKQ+ZGb1FW0JBCTt5remPctrPS+dmsxL5KijsAQU="
       }
     },
-    "GetJobLambdaVersiony6IK9Mjop8yJvYF6S9yzJpThcf0bAw6WXSIq8tgAHzg": {
+    "GetJobLambdaVersiontaPKJROQflSaU2YirDkBT6NJYRE3FgqkDSba8pCgQo": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "GetJobLambdaFunction"
         },
-        "CodeSha256": "TIJ4sGKLtD1HWoy9bTw7g99+Atrsr6uNZt1CzXE02Ac="
+        "CodeSha256": "50+xKQ+ZGb1FW0JBCTt5remPctrPS+dmsxL5KijsAQU="
+      }
+    },
+    "RouteWorkerLambdaVersiondEYv2XiVgwbNayxaCbL4KRHsGIcgTpW9MGpXwVXT0Tw": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "RouteWorkerLambdaFunction"
+        },
+        "CodeSha256": "50+xKQ+ZGb1FW0JBCTt5remPctrPS+dmsxL5KijsAQU="
       }
     },
     "HttpApi": {
@@ -472,7 +546,7 @@
     "HeartbeatLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "HeartbeatLambdaVersionpDdbadrJIwOg2hw4ShmXAE5atYlVjdmZJk4Qe9KEYI"
+        "Ref": "HeartbeatLambdaVersionc4nnhs0KVo84wJNrNbSkSg5vi3kwpugcVuJmoeBE"
       },
       "Export": {
         "Name": "sls-cityexpress-jobsmaster-dev-HeartbeatLambdaFunctionQualifiedArn"
@@ -481,7 +555,7 @@
     "CreateJobLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "CreateJobLambdaVersionNCQcB23YLNoQPiicjfejZxQvJeza1rArGxg5C0uvJtk"
+        "Ref": "CreateJobLambdaVersionEQ3dZHYKSRT9hxiMPDEvBvcqNVdtKgxXNV1UZeNVg"
       },
       "Export": {
         "Name": "sls-cityexpress-jobsmaster-dev-CreateJobLambdaFunctionQualifiedArn"
@@ -490,10 +564,19 @@
     "GetJobLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "GetJobLambdaVersiony6IK9Mjop8yJvYF6S9yzJpThcf0bAw6WXSIq8tgAHzg"
+        "Ref": "GetJobLambdaVersiontaPKJROQflSaU2YirDkBT6NJYRE3FgqkDSba8pCgQo"
       },
       "Export": {
         "Name": "sls-cityexpress-jobsmaster-dev-GetJobLambdaFunctionQualifiedArn"
+      }
+    },
+    "RouteWorkerLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "RouteWorkerLambdaVersiondEYv2XiVgwbNayxaCbL4KRHsGIcgTpW9MGpXwVXT0Tw"
+      },
+      "Export": {
+        "Name": "sls-cityexpress-jobsmaster-dev-RouteWorkerLambdaFunctionQualifiedArn"
       }
     },
     "HttpApiId": {
