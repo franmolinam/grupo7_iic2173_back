@@ -35,6 +35,7 @@ def db():
 def seed_connection(db, destination_code="HGW", enabled=True):
     from src.models.city_connection import CityConnection
     conn = CityConnection(
+        source_code="LSN",  
         destination_code=destination_code,
         destination_name="Test City",
         distance=1000.0,
@@ -167,17 +168,17 @@ def test_handle_distance_table_inserts(db):
         "HGW": {"destinationName": "Hogwarts", "distance": 1000, "transportCost": 500, "enabled": True},
         "COR": {"destinationName": "Coruscant", "distance": 2000, "transportCost": 800, "enabled": False},
     }
-    handle_distance_table(db, distances)
+    handle_distance_table(db, "LSN", distances)
     total = db.query(CityConnection).count()
     assert total == 2
 
 # test para verificar que handle_distance_table actualiza conexiones existentes
 def test_handle_distance_table_updates(db):
     distances = {"HGW": {"destinationName": "Hogwarts", "distance": 1000, "transportCost": 500, "enabled": True}}
-    handle_distance_table(db, distances)
+    handle_distance_table(db, "LSN", distances)
     distances["HGW"]["enabled"] = False
-    handle_distance_table(db, distances)
-    conn = db.query(CityConnection).filter_by(destination_code="HGW").first()
+    handle_distance_table(db, "LSN", distances)
+    conn = db.query(CityConnection).filter_by(source_code="LSN", destination_code="HGW").first()
     assert conn.enabled == False
     assert db.query(CityConnection).count() == 1
 

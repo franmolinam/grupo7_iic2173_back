@@ -149,7 +149,7 @@ def test_upsert_connections(db):
         "HGW": {"destinationName": "Hogwarts", "distance": 1000, "transportCost": 500, "enabled": True},
         "COR": {"destinationName": "Coruscant", "distance": 2000, "transportCost": 800, "enabled": False},
     }
-    upsert_connections(db, distances)
+    upsert_connections(db, "LSN", distances)
     conns = get_all_connections(db)
     assert len(conns) == 2
 
@@ -158,10 +158,10 @@ def test_upsert_connections_updates_existing(db):
     distances = {
         "HGW": {"destinationName": "Hogwarts", "distance": 1000, "transportCost": 500, "enabled": True},
     }
-    upsert_connections(db, distances)
+    upsert_connections(db, "LSN", distances)
     distances["HGW"]["enabled"] = False
-    upsert_connections(db, distances)
-    conn = db.query(CityConnection).filter_by(destination_code="HGW").first()
+    upsert_connections(db, "LSN", distances)
+    conn = db.query(CityConnection).filter_by(source_code="LSN", destination_code="HGW").first()
     assert conn.enabled == False
     total = db.query(CityConnection).count()
     assert total == 1

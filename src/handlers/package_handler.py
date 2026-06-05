@@ -86,8 +86,8 @@ def handle_package_expired(db: Session, package_id: str) -> None:
     update_package_status(db, package_id, "expired", "expired")
 
 # Manejar actualizacion de tabla de distancias/costos
-def handle_distance_table(db: Session, distances: dict) -> None:
-    upsert_connections(db, distances)
+def handle_distance_table(db: Session, source_code: str, distances: dict) -> None:
+    upsert_connections(db, source_code, distances)
 
 # Llamar cuando el frontend solicita concretar una entrega (RF04).
 def handle_package_delivered(db: Session, package_id: str) -> tuple:

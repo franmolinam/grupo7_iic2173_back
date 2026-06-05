@@ -80,6 +80,7 @@ def seed_package(client, **kwargs):
 def seed_connection(client, **kwargs):
     db = client._test_session()
     defaults = {
+        "source_code": "LSN",
         "destination_code": "HGW",
         "destination_name": "Hogwarts",
         "distance": 1000.0,
@@ -344,3 +345,168 @@ def test_create_shipment_criteria_invalido(client):
             "max_hops": 3,
         })
         assert response.status_code == 422
+
+# insertar un shipment request de prueba en la base de datos durante los tests de pagos
+def seed_shipment(client, **kwargs):
+    db = client._test_session()
+    defaults = {
+        "id": str(uuid.uuid4()),
+        "user_id": "auth0|testuser",
+        "origin_id": "LSN",
+        "destination_id": "HGW",
+        "height": 100.0,
+        "width": 100.0,
+        "depth": 100.0,
+        "criteria": "price",
+        "max_hops": 3,
+        "fprice": 1.0,
+        "route_metric_cost": 12000.0,
+        "hops_count": 2,
+        "next_hop": "TRA",
+        "full_path": ["LSN", "TRA", "HGW"],
+        "final_price": 36000,
+        "status": "quoted",
+    }
+    defaults.update(kwargs)
+    sr = ShipmentRequest(**defaults)
+    db.add(sr)
+    db.commit()
+    db.refresh(sr)
+    db.close()
+    return sr
+
+
+# TEST DE POST /shipments/:id/pay
+# Para estos tests se asume que create_transaction y commit_transaction funcionan correctamente, por lo que se mockean para no depender de Webpay ni de la lógica interna de esas funciones.
+# inicio de pago exitoso retorna token y url de Webpay para redirigir al usuario a pagar, y también el payment_id generado para identificar el pago en el callback
+def test_initiate_payment_ok(client):
+    sr = seed_shipment(client)
+    with patch("src.routes.payments.create_transaction", return_value={
+        "token": "token-webpay-test",
+        "url": "https://webpay3gint.transbank.cl/initTransaction",
+    }), patch("src.routes.payments.enviar_auditoria_pago"):
+        response = client.post(f"/shipments/{sr.id}/pay")
+        assert response.status_code == 201
+        data = response.json()
+        assert "token" in data
+        assert "url" in data
+        assert "payment_id" in data
+
+# iniciar pago con shipment request inexistente retorna 404
+def test_initiate_payment_shipment_not_found(client):
+    with patch("src.routes.payments.create_transaction"), \
+         patch("src.routes.payments.enviar_auditoria_pago"):
+        response = client.post("/shipments/no-existe/pay")
+        assert response.status_code == 404
+
+# iniciar pago con shipment request que no está en estado "quoted" retorna 400
+def test_initiate_payment_shipment_not_quoted(client):
+    sr = seed_shipment(client, status="paying")
+    with patch("src.routes.payments.create_transaction"), \
+         patch("src.routes.payments.enviar_auditoria_pago"):
+        response = client.post(f"/shipments/{sr.id}/pay")
+        assert response.status_code == 400
+
+# iniciar pago dos veces retorna 409 en la segunda vez por idempotencia
+def test_initiate_payment_idempotencia(client):
+    sr = seed_shipment(client)
+    with patch("src.routes.payments.create_transaction", return_value={
+        "token": "token-webpay-test",
+        "url": "https://webpay3gint.transbank.cl/initTransaction",
+    }), patch("src.routes.payments.enviar_auditoria_pago"):
+        client.post(f"/shipments/{sr.id}/pay")
+        response = client.post(f"/shipments/{sr.id}/pay")
+        assert response.status_code == 409
+
+
+# TEST DE POST /payments/callback
+# Para estos tests se asume que commit_transaction funciona correctamente, por lo que se mockea para no depender de Webpay ni de la lógica interna de esa función.
+def test_callback_success(client):
+    sr = seed_shipment(client, status="paying")
+    db = client._test_session()
+    from src.models.payment import Payment
+    payment = Payment(
+        id=str(uuid.uuid4()),
+        shipment_request_id=sr.id,
+        user_id="auth0|testuser",
+        webpay_token="token-success",
+        status="TRYING",
+        amount=36000,
+        currency="CLP",
+    )
+    db.add(payment)
+    db.commit()
+    db.close()
+
+    with patch("src.routes.payments.commit_transaction", return_value={
+        "response_code": 0,
+        "authorization_code": "AUTH-123",
+        "amount": 36000,
+        "transaction_date": "2026-06-05T12:00:00",
+        "status": "AUTHORIZED",
+    }), patch("src.routes.payments.enviar_auditoria_pago"):
+        response = client.post("/payments/callback", json={"token_ws": "token-success"})
+        assert response.status_code == 200
+        assert response.json()["status"] == "SUCCESS"
+
+# callback con token que retorna estado FAILED actualiza el pago a FAILED
+def test_callback_failed(client):
+    sr = seed_shipment(client, status="paying")
+    db = client._test_session()
+    from src.models.payment import Payment
+    payment = Payment(
+        id=str(uuid.uuid4()),
+        shipment_request_id=sr.id,
+        user_id="auth0|testuser",
+        webpay_token="token-failed",
+        status="TRYING",
+        amount=36000,
+        currency="CLP",
+    )
+    db.add(payment)
+    db.commit()
+    db.close()
+
+    with patch("src.routes.payments.commit_transaction", return_value={
+        "response_code": -1,
+        "authorization_code": None,
+        "amount": 36000,
+        "transaction_date": None,
+        "status": "FAILED",
+    }), patch("src.routes.payments.enviar_auditoria_pago"):
+        response = client.post("/payments/callback", json={"token_ws": "token-failed"})
+        assert response.status_code == 200
+        assert response.json()["status"] == "FAILED"
+
+# callback con token que retorna estado distinto a AUTHORIZED o FAILED actualiza el pago a CANCELLED
+def test_callback_cancelled(client):
+    response = client.post("/payments/callback", json={"token_ws": None})
+    assert response.status_code == 200
+    assert response.json()["status"] == "CANCELLED"
+
+# callback con token que ya fue procesado como SUCCESS no vuelve a actualizar el pago (idempotencia)
+def test_callback_idempotencia(client):
+    sr = seed_shipment(client, status="paying")
+    db = client._test_session()
+    from src.models.payment import Payment
+    payment = Payment(
+        id=str(uuid.uuid4()),
+        shipment_request_id=sr.id,
+        user_id="auth0|testuser",
+        webpay_token="token-idem",
+        status="SUCCESS",
+        amount=36000,
+        currency="CLP",
+    )
+    db.add(payment)
+    db.commit()
+    db.close()
+
+    response = client.post("/payments/callback", json={"token_ws": "token-idem"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "SUCCESS"
+
+# callback con token que no existe retorna 404
+def test_callback_token_not_found(client):
+    response = client.post("/payments/callback", json={"token_ws": "token-inexistente"})
+    assert response.status_code == 404  

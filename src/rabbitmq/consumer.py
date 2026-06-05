@@ -185,7 +185,7 @@ def start_consumer():
                         distancias = mensaje.get("data", {}).get("distances", {})
                         
                         if distancias and origen:
-                            handle_distance_table(db, distancias)
+                            handle_distance_table(db, CODIGO_CIUDAD, distancias)
                             print("[*] Tabla de distancias actualizada exitosamente en la base de datos")
                             
                             # RF06: Si la tabla viene de la central, se piden la tablas de las demas ciudades

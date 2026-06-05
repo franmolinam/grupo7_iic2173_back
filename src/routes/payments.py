@@ -12,7 +12,6 @@ from src.models.payment import Payment
 from src.models.shipment_request import ShipmentRequest
 from src.services.webpay_service import create_transaction, commit_transaction
 from src.rabbitmq.auditor import enviar_auditoria_pago
-from tests.test_handlers import db
 
 router = APIRouter(prefix="", tags=["payments"])
 
@@ -30,6 +29,7 @@ def initiate_payment(
     shipment_id: str,
     db: Session = Depends(get_db),
     payload: dict = Depends(validate_token),
+    #payload = {"sub": "test-user"} #sin auth
 ):
     user_id = payload.get("sub")
 
@@ -41,19 +41,15 @@ def initiate_payment(
     if shipment.user_id != user_id:
         raise HTTPException(status_code=403, detail="No tienes permiso para pagar este shipment")
 
-    if shipment.status != "quoted":
-        raise HTTPException(status_code=400, detail=f"El shipment no está en estado 'quoted' (estado actual: {shipment.status})")
-
     # si ya existe un pago TRYING para este shipment, lo devolvemos
     # Idempotencia — va ANTES del chequeo de status
-    existing = db.query(Payment).filter_by(
-    shipment_request_id=shipment_id, status="TRYING"
-    ).first()
+    existing = db.query(Payment).filter_by(shipment_request_id=shipment_id, status="TRYING"
+                                           ).first()
     if existing:
         raise HTTPException(status_code=409, detail="Ya existe un pago en proceso para este shipment")
 
-if shipment.status != "quoted":
-    raise HTTPException(status_code=400, detail=f"El shipment no está en estado 'quoted' (estado actual: {shipment.status})")
+    if shipment.status != "quoted":
+        raise HTTPException(status_code=400, detail=f"El shipment no está en estado 'quoted' (estado actual: {shipment.status})")
 
     # Crear transacción en Webpay
     payment_id = str(uuid.uuid4())

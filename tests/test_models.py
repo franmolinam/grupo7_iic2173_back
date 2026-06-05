@@ -75,6 +75,7 @@ def test_update_package_status(db):
 # test para crear una conexión entre ciudades y verificar que se guarda correctamente
 def test_create_city_connection(db):
     conn = CityConnection(
+        source_code="LSN",
         destination_code="COR",
         destination_name="Coruscant",
         distance=1000.0,
@@ -90,6 +91,7 @@ def test_create_city_connection(db):
 # test para verificar que el campo enabled de una conexión entre ciudades se guarda correctamente
 def test_city_connection_disabled(db):
     conn = CityConnection(
+        source_code="LSN",
         destination_code="HGW",
         destination_name="Hogwarts",
         enabled=False
