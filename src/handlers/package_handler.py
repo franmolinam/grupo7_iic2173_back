@@ -42,7 +42,9 @@ def handle_package_received(db: Session, package_body: dict, received_from: str)
     # si es que hay que reenviar:
     # veo si hay ruta directa habilitada
     conexion_directa = db.query(CityConnection).filter_by(
-        destination_code=destination, enabled=True
+        source_code=CIUDAD_PROPIA,
+        destination_code=destination,
+        enabled=True
     ).first()
     # si es que hay ruta directa, la uso:
     if conexion_directa:
@@ -52,6 +54,7 @@ def handle_package_received(db: Session, package_body: dict, received_from: str)
         # no puede ser ni nosotros ni la ciudad desde donde nos llegó el paquete
         excluir = {CIUDAD_PROPIA, received_from.upper()}
         alternativas = db.query(CityConnection).filter(
+            CityConnection.source_code == CIUDAD_PROPIA,
             CityConnection.enabled == True,
             ~CityConnection.destination_code.in_(excluir)
         ).all()
