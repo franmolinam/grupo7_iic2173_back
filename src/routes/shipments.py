@@ -46,6 +46,7 @@ def create_shipment(
     body: ShipmentRequestCreate,
     db: Session = Depends(get_db),
     payload: dict = Depends(validate_token),
+    #payload = {"sub": "test-user"}  # temporal para probar
 ):
     user_id = payload.get("sub")
 
