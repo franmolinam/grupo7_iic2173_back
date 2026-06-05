@@ -1,11 +1,28 @@
 service: cityexpress-jobsmaster
 
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+
 provider:
   name: aws
   runtime: python3.10
   region: us-east-2   # O la región que estén usando en AWS
+  timeout: 20
   httpApi:
     cors: true # Esto es necesario para el frontend
+  environment: # Inyectar las variables del .env a las funciones
+    DATABASE_URL: ${env:DATABASE_URL_SERVERLESS}
+    WORKER_FUNCTION_NAME: ${env:WORKER_FUNCTION_NAME}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: "*" # Esto permite invocar los lambdas propios
 
 functions:
   heartbeat:
@@ -28,3 +45,6 @@ functions:
       - httpApi:
           path: /job/{id}
           method: get
+  
+  routeWorker:
+    handler: worker.calculate_route
