@@ -19,14 +19,14 @@ def get_transaction() -> Transaction:
 def create_transaction(payment_id: str, amount: int, return_url: str) -> dict:
     tx = get_transaction()
     response = tx.create(
-        buy_order=payment_id,
-        session_id=payment_id,
+        buy_order=payment_id[:26],
+        session_id=payment_id[:61],
         amount=amount,
         return_url=return_url,
     )
     return {
-        "token": response.token,
-        "url": response.url,
+        "token": response["token"],
+        "url": response["url"],
     }
 
 # Para confirmar una transacción con Webpay usando el token.
@@ -35,9 +35,9 @@ def commit_transaction(token: str) -> dict:
     tx = get_transaction()
     response = tx.commit(token)
     return {
-        "response_code": response.response_code,
-        "authorization_code": response.authorization_code,
-        "amount": response.amount,
-        "transaction_date": response.transaction_date,
-        "status": response.status,
+        "response_code": response["response_code"],
+        "authorization_code": response.get("authorization_code"),
+        "amount": response["amount"],
+        "transaction_date": response.get("transaction_date"),
+        "status": response["status"],
     }
