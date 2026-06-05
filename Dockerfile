@@ -22,4 +22,4 @@ EXPOSE 8000
 # Comando para iniciar el servidor en desarrollo
 # 2 worker para evitar que se congele la cola
 # arreglo para q tablas se crean antes de arrancar uvicorn, y en tests no toca postgre
-CMD ["sh", "-c", "python3 -c 'from src.database import engine, Base; from src.models import Package, CityConnection, PackageEvent, ShipmentRequest, Payment; Base.metadata.create_all(bind=engine)' && newrelic-admin run-program uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 2"]
+CMD ["sh", "-c", "python3 -c 'from src.database import engine, Base; from src.models import Package, CityConnection, PackageEvent, ShipmentRequest, Payment, RoutingJob; Base.metadata.create_all(bind=engine)' && newrelic-admin run-program uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 2"]

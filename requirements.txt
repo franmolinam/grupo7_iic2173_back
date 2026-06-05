@@ -7,4 +7,4 @@ python-jose
 python-dotenv
 auth0-fastapi-api
 newrelic
-transbank
+transbank-sdk
