@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -17,8 +19,11 @@ from src.services.package_service import (
     get_all_connections,
     upsert_connections,
 )
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from src.services.shipment_service import validate_dimensions, calculate_price, get_quotation
+from src.models.shipment_request import ShipmentRequest
+from src.models.payment import Payment
+from src.services.package_service import create_and_send_package
 
 # DB en memoria para tests
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -264,3 +269,159 @@ def test_get_quotation_precio_maximo():
     with patch("src.services.shipment_service.get_routes", return_value=mock_caro):
         result = get_quotation("HGW", 1000, 1000, 1000, "price", 1, 2.0)
         assert result["final_price"] == 100000
+
+# ─── HELPERS PARA RF04 ────────────────────────────────────────────
+# Estos helpers crean ShipmentRequest y Payment en la base de datos para luego probar la función create_and_send_package, que es la que se encarga de crear el paquete y enviarlo a RabbitMQ. De esta forma, podemos probar create_and_send_package en un entorno lo más realista posible, con datos en la base de datos y sin mocks (salvo el canal de RabbitMQ para no depender de una instancia real).
+def make_shipment_request(db, **kwargs):
+    defaults = {
+        "id": str(uuid.uuid4()),
+        "user_id": "auth0|testuser",
+        "origin_id": "LSN",
+        "destination_id": "HGW",
+        "height": 100.0,
+        "width": 100.0,
+        "depth": 100.0,
+        "criteria": "price",
+        "max_hops": 3,
+        "fprice": 1.0,
+        "route_metric_cost": 12000.0,
+        "hops_count": 2,
+        "next_hop": "TRA",
+        "full_path": ["LSN", "TRA", "HGW"],
+        "final_price": 36000,
+        "status": "paid",
+    }
+    defaults.update(kwargs)
+    sr = ShipmentRequest(**defaults)
+    db.add(sr)
+    db.commit()
+    db.refresh(sr)
+    return sr
+
+# helper para crear un pago asociado a un ShipmentRequest, con datos por defecto que se pueden sobrescribir con kwargs
+def make_payment(db, shipment_id, **kwargs):
+    defaults = {
+        "id": str(uuid.uuid4()),
+        "shipment_request_id": shipment_id,
+        "user_id": "auth0|testuser",
+        "webpay_token": f"token-{uuid.uuid4()}",
+        "status": "SUCCESS",
+        "amount": 36000,
+        "currency": "CLP",
+    }
+    defaults.update(kwargs)
+    p = Payment(**defaults)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+# ─── TESTS DE create_and_send_package (RF04) ──────────────────────
+# Estos tests verifican que la función create_and_send_package crea el paquete con los datos correctos, que es idempotente, que registra un evento al crear el paquete, que incluye el criterio en constraints, que decrementa maxHops en el mensaje publicado, que publica a la ciudad correcta según nextHop o destinationId, y que no falla si hay un error al obtener el canal de RabbitMQ (en cuyo caso el paquete igual se guarda en la base de datos).
+def test_create_and_send_package_crea_paquete(db):
+    sr = make_shipment_request(db)
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel") as mock_ch:
+        mock_conn = mock_ch.return_value = (MagicMock(), MagicMock())
+        pkg = create_and_send_package(db, sr, payment)
+
+    assert pkg is not None
+    assert pkg.origin_id == "LSN"
+    assert pkg.destination_id == "HGW"
+    assert pkg.shipment_request_id == sr.id
+    assert pkg.constraints == {"criteria": "price"}
+    assert pkg.status == "forwarded"
+
+# test para verificar que si se llama a create_and_send_package dos veces con el mismo shipment, no se crean paquetes duplicados y se retorna el mismo paquete
+def test_create_and_send_package_idempotencia(db):
+    sr = make_shipment_request(db)
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel") as mock_ch:
+        mock_ch.return_value = (MagicMock(), MagicMock())
+        pkg1 = create_and_send_package(db, sr, payment)
+        pkg2 = create_and_send_package(db, sr, payment)
+
+    assert pkg1.id == pkg2.id
+    total = db.query(Package).count()
+    assert total == 1
+
+# test para verificar que al crear un paquete se registra un evento con el tipo de evento igual al nuevo estado del paquete (en este caso, "forwarded") y con la ciudad del siguiente salto
+def test_create_and_send_package_registra_evento(db):
+    sr = make_shipment_request(db)
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel") as mock_ch:
+        mock_ch.return_value = (MagicMock(), MagicMock())
+        pkg = create_and_send_package(db, sr, payment)
+
+    events = db.query(PackageEvent).filter_by(package_id=pkg.id).all()
+    assert len(events) == 1
+    assert events[0].event_type == "forwarded"
+    assert events[0].next_city_id == "TRA"
+
+# test para verificar que el criterio de evaluación se incluye en constraints del paquete creado
+def test_create_and_send_package_criteria_en_constraints(db):
+    sr = make_shipment_request(db, criteria="distance")
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel") as mock_ch:
+        mock_ch.return_value = (MagicMock(), MagicMock())
+        pkg = create_and_send_package(db, sr, payment)
+
+    assert pkg.constraints["criteria"] == "distance"
+
+# test para verificar que el mensaje publicado a RabbitMQ tiene maxHops decrementado en 1 respecto al ShipmentRequest
+def test_create_and_send_package_max_hops_decrementado(db):
+    sr = make_shipment_request(db, max_hops=5)
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel") as mock_ch:
+        mock_channel = MagicMock()
+        mock_ch.return_value = (MagicMock(), mock_channel)
+        create_and_send_package(db, sr, payment)
+
+    # Verificar que el mensaje publicado tiene maxHops = 4 (5 - 1)
+    call_args = mock_channel.basic_publish.call_args
+    body = json.loads(call_args.kwargs["body"])
+    assert body["packageBody"]["maxHops"] == 4
+
+# test para verificar que el mensaje se publica a la ciudad del nextHop si nextHop está presente, o a destinationId si no hay nextHop
+def test_create_and_send_package_publica_a_next_hop(db):
+    sr = make_shipment_request(db, next_hop="TRA")
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel") as mock_ch:
+        mock_channel = MagicMock()
+        mock_ch.return_value = (MagicMock(), mock_channel)
+        create_and_send_package(db, sr, payment)
+
+    call_args = mock_channel.basic_publish.call_args
+    assert call_args.kwargs["routing_key"] == "city.tra"
+
+# test para verificar que si no hay nextHop, el mensaje se publica a destinationId
+def test_create_and_send_package_usa_destination_si_no_hay_next_hop(db):
+    sr = make_shipment_request(db, next_hop=None, destination_id="HGW")
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel") as mock_ch:
+        mock_channel = MagicMock()
+        mock_ch.return_value = (MagicMock(), mock_channel)
+        create_and_send_package(db, sr, payment)
+
+    call_args = mock_channel.basic_publish.call_args
+    assert call_args.kwargs["routing_key"] == "city.hgw"
+
+# test para verificar que si hay un error al obtener el canal de RabbitMQ, create_and_send_package no lanza excepción y el paquete igual se guarda en la base de datos con estado "forwarded"
+def test_create_and_send_package_no_falla_si_mqtt_error(db):
+    sr = make_shipment_request(db)
+    payment = make_payment(db, sr.id)
+
+    with patch("src.services.package_service._get_rabbitmq_channel", side_effect=Exception("MQTT caído")):
+        # No debe lanzar excepción; el paquete igual se guarda en BD
+        pkg = create_and_send_package(db, sr, payment)
+
+    assert pkg is not None
+    assert db.query(Package).filter_by(id=pkg.id).first() is not None

@@ -510,3 +510,197 @@ def test_callback_idempotencia(client):
 def test_callback_token_not_found(client):
     response = client.post("/payments/callback", json={"token_ws": "token-inexistente"})
     assert response.status_code == 404  
+
+# ─── TESTS DE GET /shipments/my-shipments (RF05) ──────────────────
+# Para estos tests se asume que el endpoint de creación de shipments funciona correctamente, por lo que se insertan ShipmentRequest de prueba directamente en la base de datos usando un helper (seed_shipment) en vez de crear shipments a través del endpoint POST /shipments.
+# test para verificar que si el usuario no tiene shipments retorna lista vacía
+def test_my_shipments_empty(client):
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    assert response.json() == []
+
+# test para verificar que retorna sólo los shipments del usuario autenticado
+def test_my_shipments_retorna_los_del_usuario(client):
+    seed_shipment(client)
+    seed_shipment(client)
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+# test para verificar que no retorna shipments de otro usuario
+def test_my_shipments_no_retorna_de_otro_usuario(client):
+    # shipment del usuario autenticado (auth0|testuser)
+    seed_shipment(client)
+    # shipment de otro usuario
+    seed_shipment(client, user_id="auth0|otrouser")
+
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert all(s["origin_id"] == "LSN" for s in data)  # sólo el nuestro
+
+# test para verificar que la respuesta incluye los campos requeridos
+def test_my_shipments_campos_requeridos(client):
+    seed_shipment(client)
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    s = response.json()[0]
+    for campo in ["id", "status", "origin_id", "destination_id", "criteria",
+                  "max_hops", "final_price", "created_at", "payment", "package"]:
+        assert campo in s
+
+# test para verificar que el campo payment es None si no hay pago asociado al shipment
+def test_my_shipments_payment_none_sin_pago(client):
+    seed_shipment(client)
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    assert response.json()[0]["payment"] is None
+
+# test para verificar que el campo payment incluye el último pago asociado al shipment, si existe
+def test_my_shipments_incluye_pago(client):
+    from src.models.payment import Payment as PaymentModel
+    sr = seed_shipment(client, status="paying")
+    db = client._test_session()
+    payment = PaymentModel(
+        id=str(uuid.uuid4()),
+        shipment_request_id=sr.id,
+        user_id="auth0|testuser",
+        webpay_token="tok-test",
+        status="TRYING",
+        amount=36000,
+        currency="CLP",
+    )
+    db.add(payment)
+    db.commit()
+    db.close()
+
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    pago = response.json()[0]["payment"]
+    assert pago is not None
+    assert pago["status"] == "TRYING"
+    assert pago["amount"] == 36000
+
+# test para verificar que el campo package es None si no hay paquete asociado al shipment
+def test_my_shipments_incluye_paquete(client):
+    from src.models.package import Package as PackageModel
+    from src.models.payment import Payment as PaymentModel
+    sr = seed_shipment(client, status="forwarded")
+    db = client._test_session()
+    pkg = PackageModel(
+        id=str(uuid.uuid4()),
+        origin_id="LSN",
+        destination_id="HGW",
+        max_hops=3,
+        created_at=datetime.now(timezone.utc),
+        deliver_not_before=datetime.now(timezone.utc),
+        status="forwarded",
+        last_action="forwarded",
+        last_processed_at=datetime.now(timezone.utc),
+        shipment_request_id=sr.id,
+    )
+    db.add(pkg)
+    db.commit()
+    db.close()
+
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    paquete = response.json()[0]["package"]
+    assert paquete is not None
+    assert paquete["status"] == "forwarded"
+
+# test para verificar que si el shipment no tiene paquete asociado, el campo package es None
+def test_my_shipments_package_none_sin_paquete(client):
+    seed_shipment(client, status="quoted")
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    assert response.json()[0]["package"] is None
+
+# test para verificar que los shipments se ordenan por fecha de creación descendente (más recientes primero)
+def test_my_shipments_orden_descendente(client):
+    import time
+    sr1 = seed_shipment(client)
+    time.sleep(0.01)
+    sr2 = seed_shipment(client)
+    response = client.get("/shipments/my-shipments")
+    assert response.status_code == 200
+    ids = [s["id"] for s in response.json()]
+    assert ids[0] == sr2.id  # el más reciente primero
+
+
+# ─── TESTS DE RF04 EN EL CALLBACK ─────────────────────────────────
+# test para verificar que con pago exitoso, se crea un paquete asociado al shipment y el estado del shipment se actualiza a "forwarded"
+def test_callback_success_crea_paquete_y_estado_forwarded(client):
+    sr = seed_shipment(client, status="paying")
+    db = client._test_session()
+    from src.models.payment import Payment as PaymentModel
+    payment = PaymentModel(
+        id=str(uuid.uuid4()),
+        shipment_request_id=sr.id,
+        user_id="auth0|testuser",
+        webpay_token="token-rf04",
+        status="TRYING",
+        amount=36000,
+        currency="CLP",
+    )
+    db.add(payment)
+    db.commit()
+    db.close()
+
+    with patch("src.routes.payments.commit_transaction", return_value={
+        "response_code": 0,
+        "authorization_code": "AUTH-RF04",
+        "amount": 36000,
+        "transaction_date": "2026-06-05T12:00:00",
+        "status": "AUTHORIZED",
+    }), patch("src.routes.payments.enviar_auditoria_pago"), \
+       patch("src.routes.payments.create_and_send_package") as mock_create:
+        from src.models.package import Package as PackageModel
+        fake_pkg = PackageModel(id="pkg-fake-id", origin_id="LSN", destination_id="HGW",
+                                max_hops=2, created_at=datetime.now(timezone.utc),
+                                deliver_not_before=datetime.now(timezone.utc),
+                                status="forwarded", last_action="forwarded",
+                                last_processed_at=datetime.now(timezone.utc))
+        mock_create.return_value = fake_pkg
+
+        response = client.post("/payments/callback", json={"token_ws": "token-rf04"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "SUCCESS"
+    assert data["package_id"] == "pkg-fake-id"
+    assert data["shipment_status"] == "forwarded"
+    mock_create.assert_called_once()
+
+# test para verificar que si el pago es exitoso pero no se crea el paquete (por ejemplo, por error en create_and_send_package), el endpoint igual retorna 200 pero sin package_id ni actualización del estado del shipment
+def test_callback_success_sin_shipment_no_crea_paquete(client):
+    db = client._test_session()
+    from src.models.payment import Payment as PaymentModel
+    # pago sin shipment_request asociado (forzamos shipment_request_id inexistente)
+    payment = PaymentModel(
+        id=str(uuid.uuid4()),
+        shipment_request_id="no-existe",
+        user_id="auth0|testuser",
+        webpay_token="token-noshipment",
+        status="TRYING",
+        amount=36000,
+        currency="CLP",
+    )
+    db.add(payment)
+    db.commit()
+    db.close()
+
+    with patch("src.routes.payments.commit_transaction", return_value={
+        "response_code": 0,
+        "authorization_code": "AUTH-X",
+        "amount": 36000,
+        "transaction_date": "2026-06-05T12:00:00",
+        "status": "AUTHORIZED",
+    }), patch("src.routes.payments.enviar_auditoria_pago"), \
+       patch("src.routes.payments.create_and_send_package") as mock_create:
+
+        response = client.post("/payments/callback", json={"token_ws": "token-noshipment"})
+
+    assert response.status_code == 200
+    mock_create.assert_not_called()

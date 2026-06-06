@@ -1,7 +1,8 @@
 import os
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -11,6 +12,7 @@ from src.auth_utils import validate_token
 from src.models.payment import Payment
 from src.models.shipment_request import ShipmentRequest
 from src.services.webpay_service import create_transaction, commit_transaction
+from src.services.package_service import create_and_send_package
 from src.rabbitmq.auditor import enviar_auditoria_pago
 
 router = APIRouter(prefix="", tags=["payments"])
@@ -150,10 +152,23 @@ def payment_callback(
         except Exception:
             pass
 
+        # RF04: crear paquete y enviarlo al siguiente salto
+        package_id = None
+        if shipment:
+            try:
+                pkg = create_and_send_package(db, shipment, payment)
+                shipment.status = "forwarded"
+                db.commit()
+                package_id = pkg.id
+            except Exception as e:
+                print(f"[!] Error creando/enviando paquete: {e}")
+
         return {
             "status": "SUCCESS",
             "payment_id": payment.id,
             "authorization_code": payment.authorization_code,
+            "package_id": package_id,
+            "shipment_status": shipment.status if shipment else None,
         }
 
     else:
@@ -180,3 +195,13 @@ def payment_callback(
             pass
 
         return {"status": "FAILED", "payment_id": payment.id, "reason": "REJECTED"}
+
+# GET /payments/callback — Webpay redirige aquí con token_ws como query param
+@router.get("/payments/callback")
+def payment_callback_get(
+    token_ws: str = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    # Reutilizamos la misma lógica del POST, construyendo el body
+    body = CallbackBody(token_ws=token_ws)
+    return payment_callback(body, db)
