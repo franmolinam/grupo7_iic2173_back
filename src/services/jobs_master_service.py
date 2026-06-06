@@ -5,46 +5,70 @@ import time
 JOBS_MASTER_URL = os.getenv("JOBS_MASTER_URL", "http://localhost:8001")
 CODIGO_CIUDAD = os.getenv("CODIGO_CIUDAD", "LSN").upper()
 
+POLL_ATTEMPTS = 15   # máximo de intentos
+POLL_INTERVAL = 2    # segundos entre intentos
 
-def get_routes_mock(origin: str, destination: str, criteria: str) -> dict:
-    return {
-        "status": "done",
-        "routeMetricCost": 12000,
-        "hops": [origin, "TRA", destination],
-        "hopCount": 2,
-    }
-
-
-def get_routes_real(origin: str, destination: str, criteria: str) -> dict:
+def get_routes(origin: str, destination: str, criteria: str) -> dict:
+    # 1. Crear el job
     try:
-        # Crear el job
         response = httpx.post(
             f"{JOBS_MASTER_URL}/job",
             json={"origin": origin, "destination": destination, "criteria": criteria},
             timeout=10.0,
         )
         response.raise_for_status()
-        job_id = response.json()["jobId"]
+    except httpx.TimeoutException:
+        raise RuntimeError("JobsMaster no respondió al crear el job (timeout)")
+    except httpx.HTTPStatusError as e:
+        raise RuntimeError(f"JobsMaster rechazó el job: {e.response.status_code}")
+    except Exception as e:
+        raise RuntimeError(f"No se pudo conectar al JobsMaster: {e}")
 
-        # Polling hasta que el job esté listo
-        for _ in range(10):
-            result = httpx.get(f"{JOBS_MASTER_URL}/job/{job_id}", timeout=10.0)
+    # 2. Extraer jobId
+    try:
+        job_id = response.json()["jobId"]
+    except (KeyError, ValueError):
+        raise RuntimeError("JobsMaster devolvió una respuesta malformada al crear el job")
+
+    # 3. Polling hasta que el job esté listo
+    for attempt in range(POLL_ATTEMPTS):
+        time.sleep(POLL_INTERVAL)
+        try:
+            result = httpx.get(
+                f"{JOBS_MASTER_URL}/job/{job_id}",
+                timeout=10.0,
+            )
             result.raise_for_status()
             data = result.json()
-            if data["status"] == "done":
-                return data
-            time.sleep(1)
+        except httpx.TimeoutException:
+            print(f"[!] JobsMaster timeout en intento {attempt + 1}/{POLL_ATTEMPTS}")
+            continue
+        except Exception as e:
+            print(f"[!] Error consultando job {job_id}: {e}")
+            continue
 
-        raise TimeoutError("JobsMaster no respondió a tiempo")
+        status = data.get("status")
 
-    except Exception as e:
-        raise RuntimeError(f"Error al consultar JobsMaster: {e}")
+        if status == "done":
+            # Validar que la respuesta tiene los campos necesarios
+            if "routeMetricCost" not in data or "hops" not in data or "hopCount" not in data:
+                raise RuntimeError("JobsMaster devolvió 'done' pero con respuesta malformada")
+            return data
 
+        elif status == "failed":
+            raise RuntimeError(f"El JobsMaster falló al calcular la ruta: {data.get('error', 'sin detalle')}")
 
-# Cambiar USE_MOCK a False cuando Back 1 implemente la lógica real
-USE_MOCK = False
+        # status == "pending" → seguir esperando
+        print(f"[*] Job {job_id} aún pendiente (intento {attempt + 1}/{POLL_ATTEMPTS})")
 
-def get_routes(origin: str, destination: str, criteria: str) -> dict:
-    if USE_MOCK:
-        return get_routes_mock(origin, destination, criteria)
-    return get_routes_real(origin, destination, criteria)
+    raise RuntimeError(
+        f"JobsMaster no completó el job {job_id} tras {POLL_ATTEMPTS * POLL_INTERVAL}s"
+    )
+
+# Para verificar si el JobsMaster está operativo
+def check_heartbeat() -> bool:
+    try:
+        response = httpx.get(f"{JOBS_MASTER_URL}/heartbeat", timeout=5.0)
+        return response.status_code == 200
+    except Exception:
+        return False

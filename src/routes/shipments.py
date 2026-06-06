@@ -12,11 +12,10 @@ from src.models.shipment_request import ShipmentRequest
 from src.models.payment import Payment
 from src.models.package import Package
 from src.services.shipment_service import get_quotation
+from src.services.jobs_master_service import check_heartbeat
+from src.routes.config import get_fprice
 
 router = APIRouter(prefix="/shipments", tags=["shipments"])
-
-FPRICE_DEFAULT = float(os.getenv("FPRICE", "1.0"))
-
 
 class ShipmentRequestCreate(BaseModel):
     destination_id: str
@@ -61,7 +60,7 @@ def create_shipment(
             depth=body.depth,
             criteria=body.criteria,
             max_hops=body.max_hops,
-            fprice=FPRICE_DEFAULT,
+            fprice=get_fprice(db),
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -170,3 +169,9 @@ def my_shipments(
         })
 
     return result
+
+# indica si el JobsMaster está operativo (para monitoreo desde el frontend)
+@router.get("/jobs/heartbeat")
+def jobs_heartbeat():
+    alive = check_heartbeat()
+    return {"alive": alive, "jobs_master_url": os.getenv("JOBS_MASTER_URL")}

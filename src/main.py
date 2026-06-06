@@ -6,6 +6,7 @@ from src.routes.packages import router as packages_router
 from src.routes.connections import router as connections_router
 from src.routes.shipments import router as shipments_router
 from src.routes.payments import router as payments_router
+from src.routes.config import router as config_router
 
 # inicialización de la app
 app = FastAPI(
@@ -67,3 +68,4 @@ app.include_router(packages_router)
 app.include_router(connections_router)
 app.include_router(shipments_router)
 app.include_router(payments_router)
+app.include_router(config_router)
