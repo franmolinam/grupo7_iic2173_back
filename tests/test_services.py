@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone, timedelta
 import uuid
+import httpx
 
 from src.database import Base
 from src.models.package import Package
@@ -24,6 +25,7 @@ from src.services.shipment_service import validate_dimensions, calculate_price, 
 from src.models.shipment_request import ShipmentRequest
 from src.models.payment import Payment
 from src.services.package_service import create_and_send_package
+from src.services.jobs_master_service import get_routes, check_heartbeat
 
 # DB en memoria para tests
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -425,3 +427,138 @@ def test_create_and_send_package_no_falla_si_mqtt_error(db):
 
     assert pkg is not None
     assert db.query(Package).filter_by(id=pkg.id).first() is not None
+
+# ─── TESTS DE get_routes (JobsMaster real) ────────────────────────
+
+MOCK_JOB_RESPONSE = {
+    "status": "done",
+    "routeMetricCost": 12000.0,
+    "hops": ["LSN", "TRA", "HGW"],
+    "hopCount": 2,
+}
+
+# Simula respuesta exitosa de POST /job.
+def _mock_post(job_id="job-123"):
+    mock = MagicMock()
+    mock.json.return_value = {"jobId": job_id, "status": "pending"}
+    mock.raise_for_status.return_value = None
+    return mock
+
+# Simula respuesta exitosa de GET /job/:id con status done.
+def _mock_get_done():
+    mock = MagicMock()
+    mock.json.return_value = MOCK_JOB_RESPONSE
+    mock.raise_for_status.return_value = None
+    return mock
+
+# test para verificar que get_routes retorna la ruta correctamente cuando el JobsMaster responde con éxito
+def test_get_routes_ok():
+    with patch("src.services.jobs_master_service.httpx.post", return_value=_mock_post()), \
+         patch("src.services.jobs_master_service.httpx.get", return_value=_mock_get_done()), \
+         patch("src.services.jobs_master_service.time.sleep"):
+        result = get_routes("LSN", "HGW", "price")
+    assert result["status"] == "done"
+    assert result["routeMetricCost"] == 12000.0
+    assert result["hops"] == ["LSN", "TRA", "HGW"]
+    assert result["hopCount"] == 2
+
+# test para verificar que si el POST para crear el job falla con timeout, get_routes lanza RuntimeError con mensaje de timeout
+def test_get_routes_timeout_en_post():
+    with patch("src.services.jobs_master_service.httpx.post",
+               side_effect=httpx.TimeoutException("timeout")):
+        with pytest.raises(RuntimeError, match="timeout"):
+            get_routes("LSN", "HGW", "price")
+
+# test para verificar que si el POST para crear el job falla con un error HTTP, get_routes lanza RuntimeError con mensaje de rechazo
+def test_get_routes_error_http_en_post():
+    mock = MagicMock()
+    mock.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "error", request=MagicMock(), response=MagicMock(status_code=500)
+    )
+    with patch("src.services.jobs_master_service.httpx.post", return_value=mock):
+        with pytest.raises(RuntimeError, match="rechazó"):
+            get_routes("LSN", "HGW", "price")
+
+# test para verificar que si el POST para crear el job falla con una excepción de conexión, get_routes lanza RuntimeError con mensaje de conexión
+def test_get_routes_respuesta_sin_job_id():
+    mock = MagicMock()
+    mock.json.return_value = {"status": "pending"}  # sin jobId
+    mock.raise_for_status.return_value = None
+    with patch("src.services.jobs_master_service.httpx.post", return_value=mock):
+        with pytest.raises(RuntimeError, match="malformada"):
+            get_routes("LSN", "HGW", "price")
+
+# test para verificar que si el GET de polling responde con status failed, get_routes lanza RuntimeError con mensaje de fallo
+def test_get_routes_status_failed():
+    mock_get = MagicMock()
+    mock_get.json.return_value = {"status": "failed", "error": "sin ruta disponible"}
+    mock_get.raise_for_status.return_value = None
+    with patch("src.services.jobs_master_service.httpx.post", return_value=_mock_post()), \
+         patch("src.services.jobs_master_service.httpx.get", return_value=mock_get), \
+         patch("src.services.jobs_master_service.time.sleep"):
+        with pytest.raises(RuntimeError, match="falló"):
+            get_routes("LSN", "HGW", "price")
+
+# test para verificar que si el GET de polling responde con status pending en todos los intentos, get_routes lanza RuntimeError con mensaje de no completó
+def test_get_routes_timeout_polling():
+    mock_get = MagicMock()
+    mock_get.json.return_value = {"status": "pending"}
+    mock_get.raise_for_status.return_value = None
+    with patch("src.services.jobs_master_service.httpx.post", return_value=_mock_post()), \
+         patch("src.services.jobs_master_service.httpx.get", return_value=mock_get), \
+         patch("src.services.jobs_master_service.time.sleep"), \
+         patch("src.services.jobs_master_service.POLL_ATTEMPTS", 3):
+        with pytest.raises(RuntimeError, match="no completó"):
+            get_routes("LSN", "HGW", "price")
+
+# done pero sin los campos requeridos.
+def test_get_routes_done_malformado():
+    mock_get = MagicMock()
+    mock_get.json.return_value = {"status": "done"}  # faltan routeMetricCost, hops, hopCount
+    mock_get.raise_for_status.return_value = None
+    with patch("src.services.jobs_master_service.httpx.post", return_value=_mock_post()), \
+         patch("src.services.jobs_master_service.httpx.get", return_value=mock_get), \
+         patch("src.services.jobs_master_service.time.sleep"):
+        with pytest.raises(RuntimeError, match="malformada"):
+            get_routes("LSN", "HGW", "price")
+
+# test para verificar que si el GET de polling falla con timeout en los primeros intentos pero eventualmente responde con status done, get_routes retorna la ruta correctamente
+def test_get_routes_timeout_en_polling_get():
+    mock_get_timeout = MagicMock()
+    mock_get_timeout.raise_for_status.side_effect = httpx.TimeoutException("timeout")
+
+    call_count = 0
+    def get_side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise httpx.TimeoutException("timeout")
+        return _mock_get_done()
+
+    with patch("src.services.jobs_master_service.httpx.post", return_value=_mock_post()), \
+         patch("src.services.jobs_master_service.httpx.get", side_effect=get_side_effect), \
+         patch("src.services.jobs_master_service.time.sleep"):
+        result = get_routes("LSN", "HGW", "price")
+    assert result["status"] == "done"
+
+
+# ─── TESTS DE check_heartbeat ─────────────────────────────────────
+# test para verificar que check_heartbeat retorna True cuando el JobsMaster responde con status 200
+def test_check_heartbeat_ok():
+    mock = MagicMock()
+    mock.status_code = 200
+    with patch("src.services.jobs_master_service.httpx.get", return_value=mock):
+        assert check_heartbeat() is True
+
+# test para verificar que check_heartbeat retorna False cuando el JobsMaster responde con un status diferente a 200
+def test_check_heartbeat_falla_por_status():
+    mock = MagicMock()
+    mock.status_code = 503
+    with patch("src.services.jobs_master_service.httpx.get", return_value=mock):
+        assert check_heartbeat() is False
+
+# test para verificar que check_heartbeat retorna False cuando hay una excepción al intentar conectar con el JobsMaster (por ejemplo, si el servicio está caído)
+def test_check_heartbeat_falla_por_excepcion():
+    with patch("src.services.jobs_master_service.httpx.get",
+               side_effect=Exception("conexión rechazada")):
+        assert check_heartbeat() is False

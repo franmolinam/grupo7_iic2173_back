@@ -704,3 +704,92 @@ def test_callback_success_sin_shipment_no_crea_paquete(client):
 
     assert response.status_code == 200
     mock_create.assert_not_called()
+
+# ─── TESTS DE GET /config/fprice y PUT /config/fprice ─────────────
+# test para verificar que si no hay registro en la base de datos para fprice, el endpoint GET /config/fprice retorna el valor default definido en el .env (1.0)
+def test_get_fprice_default(client):
+    response = client.get("/config/fprice")
+    assert response.status_code == 200
+    assert response.json()["fprice"] == 1.0
+
+# test para verificar que si hay un registro en la base de datos para fprice, el endpoint GET /config/fprice retorna ese valor en vez del default
+def test_get_fprice_desde_bd(client):
+    from src.models.branch_config import BranchConfig
+    db = client._test_session()
+    db.add(BranchConfig(key="fprice", value=1.5))
+    db.commit()
+    db.close()
+
+    response = client.get("/config/fprice")
+    assert response.status_code == 200
+    assert response.json()["fprice"] == 1.5
+
+# test para verificar que el endpoint PUT /config/fprice actualiza el valor de fprice en la base de datos, y que luego GET /config/fprice devuelve el nuevo valor actualizado
+def test_put_fprice_actualiza_valor(client):
+    response = client.put("/config/fprice", json={"value": 1.8})
+    assert response.status_code == 200
+    assert response.json()["fprice"] == 1.8
+
+    # Verificar que GET devuelve el nuevo valor
+    response2 = client.get("/config/fprice")
+    assert response2.json()["fprice"] == 1.8
+
+# test para verificar que si se hace PUT /config/fprice con un valor nuevo, y luego otro PUT con otro valor distinto, el segundo PUT sobrescribe el valor anterior en la base de datos (en vez de crear un nuevo registro), y GET /config/fprice devuelve el último valor actualizado
+def test_put_fprice_sobrescribe_valor_existente(client):
+    client.put("/config/fprice", json={"value": 1.5})
+    client.put("/config/fprice", json={"value": 0.8})
+
+    response = client.get("/config/fprice")
+    assert response.json()["fprice"] == 0.8
+
+    # Verificar que no se crearon duplicados en BD
+    from src.models.branch_config import BranchConfig
+    db = client._test_session()
+    count = db.query(BranchConfig).filter_by(key="fprice").count()
+    db.close()
+    assert count == 1
+
+# test para verificar que el endpoint PUT /config/fprice valida que el valor esté dentro del rango permitido (0.5 a 2.0), y retorna 422 si se intenta actualizar con un valor fuera de ese rango
+def test_put_fprice_rechaza_menor_a_minimo(client):
+    response = client.put("/config/fprice", json={"value": 0.4})
+    assert response.status_code == 422
+
+# test para verificar que el endpoint PUT /config/fprice valida que el valor esté dentro del rango permitido (0.5 a 2.0), y retorna 422 si se intenta actualizar con un valor fuera de ese rango
+def test_put_fprice_rechaza_mayor_a_maximo(client):
+    response = client.put("/config/fprice", json={"value": 2.1})
+    assert response.status_code == 422
+
+# test para verificar que el endpoint PUT /config/fprice acepta valores dentro del rango permitido, incluyendo los límites exactos (0.5 y 2.0), y actualiza correctamente el valor en la base de datos
+def test_put_fprice_acepta_limites_exactos(client):
+    response = client.put("/config/fprice", json={"value": 0.5})
+    assert response.status_code == 200
+    response = client.put("/config/fprice", json={"value": 2.0})
+    assert response.status_code == 200
+
+# test para verificar que el endpoint PUT /config/fprice requiere autenticación, y que sin un token válido retorna 401 o 403 (dependiendo de la configuración de seguridad), lo que verifica que el override de validate_token está funcionando correctamente en los tests
+def test_put_fprice_requiere_auth(client):
+    """Sin override de auth debería fallar — verificamos que el dep está puesto."""
+    # Removemos el override de validate_token temporalmente
+    from src.auth_utils import validate_token
+    del app.dependency_overrides[validate_token]
+    response = client.put("/config/fprice", json={"value": 1.5})
+    # Restaurar
+    app.dependency_overrides[validate_token] = lambda: {"sub": "auth0|testuser"}
+    assert response.status_code in (401, 403)
+
+
+# ─── TESTS DE GET /jobs/heartbeat (RNF04) ─────────────────────────
+# Para estos tests se asume que la función check_heartbeat que verifica el estado del worker de procesamiento de paquetes funciona correctamente, por lo que se mockea para no depender de la lógica interna de esa función ni del estado real del worker durante los tests.
+# test para verificar que si check_heartbeat retorna True, el endpoint GET /jobs/heartbeat retorna alive: true
+def test_jobs_heartbeat_alive(client):
+    with patch("src.routes.shipments.check_heartbeat", return_value=True):
+        response = client.get("/shipments/jobs/heartbeat")
+    assert response.status_code == 200
+    assert response.json()["alive"] is True
+
+# test para verificar que si check_heartbeat retorna False, el endpoint GET /jobs/heartbeat retorna alive: false
+def test_jobs_heartbeat_down(client):
+    with patch("src.routes.shipments.check_heartbeat", return_value=False):
+        response = client.get("/shipments/jobs/heartbeat")
+    assert response.status_code == 200
+    assert response.json()["alive"] is False
