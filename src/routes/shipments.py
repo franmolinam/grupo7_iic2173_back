@@ -9,6 +9,8 @@ import os
 from src.database import get_db
 from src.auth_utils import validate_token
 from src.models.shipment_request import ShipmentRequest
+from src.models.payment import Payment
+from src.models.package import Package
 from src.services.shipment_service import get_quotation
 
 router = APIRouter(prefix="/shipments", tags=["shipments"])
@@ -105,3 +107,66 @@ def create_shipment(
         "final_price": shipment.final_price,
         "created_at": shipment.created_at,
     }
+
+
+# RF05: vista de envíos del usuario autenticado
+@router.get("/my-shipments")
+def my_shipments(
+    db: Session = Depends(get_db),
+    payload: dict = Depends(validate_token),
+    #payload = {"sub": "test-user"}, # probar
+):
+    user_id = payload.get("sub")
+
+    shipments = (
+        db.query(ShipmentRequest)
+        .filter_by(user_id=user_id)
+        .order_by(ShipmentRequest.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for s in shipments:
+        # último pago asociado (puede haber reintentos fallidos)
+        payment = (
+            db.query(Payment)
+            .filter_by(shipment_request_id=s.id)
+            .order_by(Payment.created_at.desc())
+            .first()
+        )
+        # paquete creado post-pago (si existe)
+        package = db.query(Package).filter_by(shipment_request_id=s.id).first()
+
+        result.append({
+            "id": s.id,
+            "status": s.status,
+            "origin_id": s.origin_id,
+            "destination_id": s.destination_id,
+            "criteria": s.criteria,
+            "max_hops": s.max_hops,
+            "hops_count": s.hops_count,
+            "next_hop": s.next_hop,
+            "full_path": s.full_path,
+            "route_metric_cost": s.route_metric_cost,
+            "fprice": s.fprice,
+            "final_price": s.final_price,
+            "deliver_not_before": s.deliver_not_before,
+            "meta_content": s.meta_content,
+            "created_at": s.created_at,
+            "payment": {
+                "id": payment.id,
+                "status": payment.status,
+                "amount": payment.amount,
+                "currency": payment.currency,
+                "authorization_code": payment.authorization_code,
+                "created_at": payment.created_at,
+                "updated_at": payment.updated_at,
+            } if payment else None,
+            "package": {
+                "id": package.id,
+                "status": package.status,
+                "last_action": package.last_action,
+            } if package else None,
+        })
+
+    return result
