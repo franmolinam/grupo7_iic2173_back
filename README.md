@@ -33,10 +33,12 @@ Esta entrega implementa una arquitectura distribuida basada en microservicios, d
 
 ## Puntos logrados E1
 Requisitos Funcionales
+
 - RF01 – Visualización de paquetes recibidos
 - RF02 – Visualización de conectividad entre ciudades
 - RF03 – Sistema de ruteo implementado
 - RF04 – Entrega de paquetes con validación
+
 Requisitos No Funcionales
 - RNF01 – Separación Backend / Frontend
 - RNF02 – Backend dockerizado y desplegado en EC2 usando ECR
@@ -48,6 +50,7 @@ Requisitos No Funcionales
 - RNF08 – Frontend desplegado en S3 + CloudFront
 - RNF09 – New Relic: APM y monitoreo de infraestructura
 - RNF10 – Reinicio automático de contenedores y retry con delay fibonacci
+
 Documentación
 - RDOC01 – Diagrama UML de Componentes
 - RDOC02 – Monitoreo en New Relic
@@ -63,6 +66,7 @@ Requisitos Funcionales
 - RF06 – Sincronización y respuesta de tablas de distancia/costo entre ciudades.
 - RF07 – Ruteo de paquetes según criterio de precio o distancia, respetando maxHops.
 - RF08 – Acceso a la interfaz de administrador.
+
 Requisitos No Funcionales
 - RNF01 – Implementación de servicio asincrónico de jobs/workers para cálculo de rutas.
 - RNF02 – Manejo robusto y persistencia de estados de pago de Webpay.
@@ -73,6 +77,7 @@ Requisitos No Funcionales
 - RNF07 – Persistencia de datos e implementación de idempotencia para pagos y paquetes.
 <!-- - RNF08 – Pipeline CI/CD para backend usando AWS CodeDeploy y ECR. -->
 <!-- - RNF09 – Pipeline CI/CD para frontend con despliegue en AWS S3 y CloudFront. -->
+
 Documentación
 <!-- - RDOC01 – Diagrama UML de componentes actualizado. -->
 <!-- - RDOC02 – Documentación de la integración con WebPay. -->
