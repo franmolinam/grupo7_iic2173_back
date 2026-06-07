@@ -29,8 +29,7 @@ El flujo es el siguiente:
 5. Se retorna token y url al frontend
 
 #### Paso 3: Redirección a Webpay (Frontend)
-El frontend hace un form POST a la url de Webpay con el token como campo hidden token_ws. El usuario completa el pago en la interfaz de Transbank. 
-[FRONTEND DOCUMENTA ESTE PASO]
+Al recibir la respuesta exitosa del backend (que incluye la url de Transbank y el token de la transacción), el frontend genera dinámicamente un formulario POST. Este formulario apunta al atributo action hacia la URL entregada, e incluye un campo oculto llamado token_ws que almacena el valor del token. Finalmente, se gatilla el envío automático de este formulario. Esto saca al usuario del entorno de la SPA y lo redirige al portal de pagos de Webpay.
 
 #### Paso 4: Callback (`GET /payments/callback`)
 Webpay redirige al usuario directamente a `WEBPAY_RETURN_URL?token_ws=...`. El backend tiene un endpoint `GET /payments/callback` que recibe ese token automáticamente, confirma con Transbank y procesa el resultado. El frontend solo necesita mostrar la página de resultado que devuelve el callback.

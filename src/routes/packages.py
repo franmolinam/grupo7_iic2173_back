@@ -57,6 +57,9 @@ def list_packages(
     if constraints:
         query = query.filter(Package.constraints.contains(constraints))
 
+    # ordenar por fecha de creación descendente antes de paginar
+    query = query.order_by(Package.created_at.desc())
+
     # pagino los resultados
     packages = query.offset(skip).limit(limit).all()
 

@@ -117,7 +117,7 @@ def payment_callback(
 
     # Si ya fue procesado, devolvemos el estado actual
     if payment.status in ("SUCCESS", "FAILED"):
-        return {"status": payment.status, "payment_id": payment.id}
+        return {"status": payment.status, "payment_id": payment.id, "authorization_code": payment.authorization_code}
 
     # Confirmar con Webpay
     try:
