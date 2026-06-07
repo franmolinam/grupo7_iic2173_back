@@ -39,3 +39,23 @@ async def validate_token(res: HTTPAuthorizationCredentials = Depends(security)):
         raise HTTPException(status_code=401, detail=str(e))
     
     raise HTTPException(status_code=401, detail="No se pudo validar el token.")
+
+def is_admin(payload):
+    admins = [
+        admin.strip()
+        for admin in os.getenv("ADMIN_USERS", "").split(",")
+        if admin.strip()
+    ]
+
+    return payload.get("sub") in admins
+
+def require_admin(
+    payload: dict = Depends(validate_token)
+):
+    if not is_admin(payload):
+        raise HTTPException(
+            status_code=403,
+            detail="Admin only"
+        )
+
+    return payload
