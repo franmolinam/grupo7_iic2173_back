@@ -139,6 +139,9 @@ def start_consumer():
                             print(f"[*] Paquete {resultado['package_id']} expiró (maxHops=0).")
                             handle_package_expired(db, resultado['package_id'])
                             enviar_reporte_auditor(ch, resultado['package_id'], "expired")
+                        
+                        elif accion == "pending_routing":
+                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {resultado.get('destination_id', 'Unknown')}. Guardado como pending-routing.")
 
                         # Reenvio a otra ciudad
                         elif accion == "forward":
@@ -221,6 +224,25 @@ def start_consumer():
                     db = SessionLocal()
                     try:
                         print(f"[*] Solicitud de tabla recibida de: {ciudad_origen}. Preparando respuesta...")
+
+                        # Se prepara y publica el mensaje ACK
+                        respuesta_ack = {
+                            "idpk": str(uuid.uuid4()),
+                            "msgId": str(uuid.uuid4()),
+                            "type": "ack",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "cityId": CODIGO_CIUDAD,
+                            "replyToMsgId": mensaje.get("msgId") # Referencia al mensaje original
+                        }
+
+                        publicar_mensaje(
+                            channel=ch,
+                            exchange='fulfillment.x',
+                            routing_key=f"city.{ciudad_origen.lower()}",
+                            message_dict=respuesta_ack
+                        )
+                        print(f"[*] ACK enviado a {ciudad_origen} por solicitud de tabla de distancias.")
+
                         # Primero se obtiene la tabla local
                         local_distances = get_local_distance_table(db)
                         
