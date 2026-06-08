@@ -43,3 +43,10 @@ jobs:
         run: |
           docker push \
           $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest
+
+      - name: Deploy with CodeDeploy
+        run: |
+          aws deploy create-deployment \
+            --application-name cityexpress-backend \
+            --deployment-group-name cityexpress-backend-group \
+            --github-location repository=$GITHUB_REPOSITORY,commitId=$GITHUB_SHA
