@@ -73,3 +73,14 @@ app.include_router(packages_router)
 app.include_router(config_router)
 app.include_router(payments_router)
 app.include_router(shipments_router)
+
+from src.auth_utils import validate_token, is_admin
+@app.get("/me")
+def get_me(
+    payload: dict = Depends(validate_token)
+):
+    return {
+        "user_id": payload.get("sub"),
+        "is_admin": is_admin(payload),
+        "claims": payload
+    }
