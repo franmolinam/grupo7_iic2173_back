@@ -75,14 +75,14 @@ Requisitos No Funcionales
 - RNF05 – Separación de permisos y vistas entre usuarios normales y administradores.
 - RNF06 – Despliegue del sistema de workers en AWS utilizando Serverless Framework o AWS SAM.
 - RNF07 – Persistencia de datos e implementación de idempotencia para pagos y paquetes.
-<!-- - RNF08 – Pipeline CI/CD para backend usando AWS CodeDeploy y ECR. -->
-<!-- - RNF09 – Pipeline CI/CD para frontend con despliegue en AWS S3 y CloudFront. -->
+- RNF08 – Pipeline CI/CD para backend usando AWS CodeDeploy y ECR. 
+- RNF09 – Pipeline CI/CD para frontend con despliegue en AWS S3 y CloudFront.
 
 Documentación
-<!-- - RDOC01 – Diagrama UML de componentes actualizado. -->
-<!-- - RDOC02 – Documentación de la integración con WebPay. -->
-<!-- - RDOC03 – Documentación paso a paso del despliegue en Serverless/SAM. -->
-<!-- - RDOC04 – Documentación explicativa del pipeline CI/CD. -->
+- RDOC01 – Diagrama UML de componentes actualizado.
+- RDOC02 – Documentación de la integración con WebPay.
+- RDOC03 – Documentación paso a paso del despliegue en Serverless/SAM.
+- RDOC04 – Documentación explicativa del pipeline CI/CD.
 
 ## Consideraciones Generales
 - El proyecto fue desarrollado utilizando Docker desde el inicio.
