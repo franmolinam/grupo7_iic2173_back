@@ -1,0 +1,181 @@
+{
+  "/home/franmolinam/Arquisis/E1/grupo7_iic2173_back/jobs_master/serverless.yml": {
+    "versionFramework": "4.37.0",
+    "servicePath": "/home/franmolinam/Arquisis/E1/grupo7_iic2173_back/jobs_master/serverless.yml",
+    "serviceConfigFileName": "serverless.yml",
+    "service": {
+      "service": "cityexpress-jobsmaster",
+      "plugins": [
+        "serverless-dotenv-plugin",
+        "serverless-python-requirements"
+      ],
+      "custom": {
+        "pythonRequirements": {
+          "dockerizePip": "non-linux"
+        }
+      },
+      "provider": {
+        "name": "aws",
+        "runtime": "python3.10",
+        "region": "us-east-2",
+        "timeout": 20,
+        "httpApi": {
+          "cors": true
+        },
+        "environment": {
+          "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+          "WORKER_FUNCTION_NAME": "cityexpress-jobsmaster-dev-routeWorker",
+          "DATABASE_URL_SERVERLESS": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress"
+        },
+        "iamRoleStatements": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "lambda:InvokeFunction"
+            ],
+            "Resource": "*"
+          }
+        ],
+        "stage": "dev",
+        "versionFunctions": true
+      },
+      "functions": {
+        "heartbeat": {
+          "handler": "handler.heartbeat",
+          "events": [
+            {
+              "httpApi": {
+                "path": "/heartbeat",
+                "method": "get"
+              }
+            }
+          ],
+          "name": "cityexpress-jobsmaster-dev-heartbeat"
+        },
+        "createJob": {
+          "handler": "handler.create_job",
+          "events": [
+            {
+              "httpApi": {
+                "path": "/job",
+                "method": "post"
+              }
+            }
+          ],
+          "name": "cityexpress-jobsmaster-dev-createJob"
+        },
+        "getJob": {
+          "handler": "handler.get_job",
+          "events": [
+            {
+              "httpApi": {
+                "path": "/job/{id}",
+                "method": "get"
+              }
+            }
+          ],
+          "name": "cityexpress-jobsmaster-dev-getJob"
+        },
+        "routeWorker": {
+          "handler": "worker.calculate_route",
+          "events": [],
+          "name": "cityexpress-jobsmaster-dev-routeWorker"
+        }
+      }
+    },
+    "provider": {
+      "name": "aws",
+      "runtime": "python3.10",
+      "region": "us-east-2",
+      "timeout": 20,
+      "httpApi": {
+        "cors": true
+      },
+      "environment": {
+        "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+        "WORKER_FUNCTION_NAME": "cityexpress-jobsmaster-dev-routeWorker",
+        "DATABASE_URL_SERVERLESS": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress"
+      },
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "lambda:InvokeFunction"
+          ],
+          "Resource": "*"
+        }
+      ],
+      "stage": "dev",
+      "versionFunctions": true
+    },
+    "dashboard": {
+      "isEnabledForService": false,
+      "requiredAuthentication": false,
+      "orgFeaturesInUse": null,
+      "orgObservabilityIntegrations": null,
+      "serviceAppId": null,
+      "serviceProvider": null,
+      "instanceParameters": null
+    },
+    "serviceRawFile": "service: cityexpress-jobsmaster\n\nplugins:\n  - serverless-dotenv-plugin\n  - serverless-python-requirements\n\ncustom:\n  pythonRequirements:\n    dockerizePip: non-linux\n\nprovider:\n  name: aws\n  runtime: python3.10\n  region: us-east-2   # O la región que estén usando en AWS\n  timeout: 20\n  httpApi:\n    cors: true # Esto es necesario para el frontend\n  environment: # Inyectar las variables del .env a las funciones\n    DATABASE_URL: ${env:DATABASE_URL_SERVERLESS}\n    WORKER_FUNCTION_NAME: ${env:WORKER_FUNCTION_NAME}\n  iamRoleStatements:\n    - Effect: Allow\n      Action:\n        - lambda:InvokeFunction\n      Resource: \"*\" # Esto permite invocar los lambdas propios\n\nfunctions:\n  heartbeat:\n    handler: handler.heartbeat\n    events:\n      - httpApi:\n          path: /heartbeat\n          method: get\n\n  createJob:\n    handler: handler.create_job\n    events:\n      - httpApi:\n          path: /job\n          method: post\n\n  getJob:\n    handler: handler.get_job\n    events:\n      - httpApi:\n          path: /job/{id}\n          method: get\n  \n  routeWorker:\n    handler: worker.calculate_route",
+    "command": [
+      "logs"
+    ],
+    "options": {
+      "function": "routeWorker"
+    },
+    "orgId": "c85f6032-c402-40fc-8b5f-4b278f60d24f",
+    "orgName": "franmolinam",
+    "userId": "WKD3jV6CClnL9tLk4r",
+    "userName": "franmolinam",
+    "serviceProviderAwsAccountId": "127621463290",
+    "serviceProviderAwsCfStackName": "cityexpress-jobsmaster-dev",
+    "serviceProviderAwsCfStackId": "arn:aws:cloudformation:us-east-2:127621463290:stack/cityexpress-jobsmaster-dev/39c71450-5e0d-11f1-9eb7-062349c0cc25",
+    "serviceProviderAwsCfStackCreated": "2026-06-01T22:57:12.356Z",
+    "serviceProviderAwsCfStackUpdated": "2026-06-04T23:19:36.801Z",
+    "serviceProviderAwsCfStackStatus": "UPDATE_COMPLETE",
+    "serviceProviderAwsCfStackOutputs": [
+      {
+        "OutputKey": "HeartbeatLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-2:127621463290:function:cityexpress-jobsmaster-dev-heartbeat:7",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-cityexpress-jobsmaster-dev-HeartbeatLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "RouteWorkerLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-2:127621463290:function:cityexpress-jobsmaster-dev-routeWorker:6",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-cityexpress-jobsmaster-dev-RouteWorkerLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "GetJobLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-2:127621463290:function:cityexpress-jobsmaster-dev-getJob:7",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-cityexpress-jobsmaster-dev-GetJobLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "CreateJobLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-2:127621463290:function:cityexpress-jobsmaster-dev-createJob:7",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-cityexpress-jobsmaster-dev-CreateJobLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "HttpApiId",
+        "OutputValue": "l0tz91hco3",
+        "Description": "Id of the HTTP API",
+        "ExportName": "sls-cityexpress-jobsmaster-dev-HttpApiId"
+      },
+      {
+        "OutputKey": "ServerlessDeploymentBucketName",
+        "OutputValue": "serverless-framework-deployments-us-east-2-2f7f93bc-39a3",
+        "ExportName": "sls-cityexpress-jobsmaster-dev-ServerlessDeploymentBucketName"
+      },
+      {
+        "OutputKey": "HttpApiUrl",
+        "OutputValue": "https://l0tz91hco3.execute-api.us-east-2.amazonaws.com",
+        "Description": "URL of the HTTP API",
+        "ExportName": "sls-cityexpress-jobsmaster-dev-HttpApiUrl"
+      }
+    ]
+  }
+}

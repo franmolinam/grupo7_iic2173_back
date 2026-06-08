@@ -2,10 +2,117 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from typing import Optional
 import uuid
+import os
+import json
+import pika
+import ssl
 
 from src.models.package import Package
 from src.models.package_event import PackageEvent
 from src.models.city_connection import CityConnection
+
+CODIGO_CIUDAD = os.getenv("CODIGO_CIUDAD", "LSN").upper()
+
+
+def _get_rabbitmq_channel():
+    credenciales = pika.PlainCredentials(
+        os.getenv("RABBITMQ_USER"), os.getenv("RABBITMQ_PASSWORD")
+    )
+    context = ssl.create_default_context()
+    ssl_options = pika.SSLOptions(context)
+    parameters = pika.ConnectionParameters(
+        host=os.getenv("RABBITMQ_HOST"),
+        port=int(os.getenv("RABBITMQ_PORT", 5671)),
+        virtual_host="fulfillment",
+        credentials=credenciales,
+        ssl_options=ssl_options,
+        heartbeat=60,
+    )
+    conexion = pika.BlockingConnection(parameters)
+    return conexion, conexion.channel()
+
+# Crea el Package en BD y lo publica al siguiente salto via MQTT. Idempotente: si ya existe paquete para este shipment, lo retorna sin re-enviar.
+def create_and_send_package(db: Session, shipment, payment) -> Package:
+    
+    existing = db.query(Package).filter_by(shipment_request_id=shipment.id).first()
+    if existing:
+        return existing
+
+    now = datetime.now(timezone.utc)
+    pkg_id = str(uuid.uuid4())
+
+    deliver_not_before = shipment.deliver_not_before or now
+    if hasattr(deliver_not_before, 'tzinfo') and deliver_not_before.tzinfo is None:
+        deliver_not_before = deliver_not_before.replace(tzinfo=timezone.utc)
+
+    pkg = Package(
+        id=pkg_id,
+        origin_id=shipment.origin_id,
+        destination_id=shipment.destination_id,
+        max_hops=shipment.max_hops,
+        created_at=now,
+        deliver_not_before=deliver_not_before,
+        meta_content=shipment.meta_content,
+        constraints={"criteria": shipment.criteria},
+        payment=payment.amount,
+        status="forwarded",
+        last_action="forwarded",
+        last_processed_at=now,
+        shipment_request_id=shipment.id,
+        received_from=CODIGO_CIUDAD,
+    )
+    db.add(pkg)
+    db.commit()
+    db.refresh(pkg)
+
+    # Publicar al siguiente salto via MQTT
+    next_hop = shipment.next_hop or shipment.destination_id
+    package_body = {
+        "id": pkg.id,
+        "originId": pkg.origin_id,
+        "destinationId": pkg.destination_id,
+        "maxHops": pkg.max_hops - 1,  # descontamos el salto inicial
+        "createdAt": now.isoformat(),
+        "deliverNotBefore": deliver_not_before.isoformat(),
+        "metaContent": pkg.meta_content,
+        "constraints": {"criteria": shipment.criteria},
+        "payment": pkg.payment,
+    }
+    mensaje = {
+        "idpk": str(uuid.uuid4()),
+        "msgId": str(uuid.uuid4()),
+        "type": "package-transit",
+        "timestamp": now.isoformat(),
+        "cityId": CODIGO_CIUDAD,
+        "packageBody": package_body,
+    }
+
+    try:
+        conexion, channel = _get_rabbitmq_channel()
+        channel.basic_publish(
+            exchange="fulfillment.x",
+            routing_key=f"city.{next_hop.lower()}",
+            body=json.dumps(mensaje),
+            mandatory=True,
+        )
+        conexion.close()
+        print(f"[*] Paquete {pkg.id} enviado a {next_hop} via MQTT")
+    except Exception as e:
+        print(f"[!] Error al publicar paquete {pkg.id} en MQTT: {e}")
+        # El paquete queda en BD; el estado refleja que está "forwarded" pero falló el envío
+
+    # Registrar evento de envío
+    event = PackageEvent(
+        id=str(uuid.uuid4()),
+        package_id=pkg.id,
+        event_type="forwarded",
+        next_city_id=next_hop,
+        timestamp=now,
+    )
+    db.add(event)
+    db.commit()
+
+    return pkg
 
 
 # Funciones de Package
@@ -121,11 +228,13 @@ def get_all_connections(db: Session):
     return db.query(CityConnection).all()
 
 # Actualizar o insertar las conexiones de ciudades a partir de la tabla de distancias del broker
-def upsert_connections(db: Session, distances: dict):
+def upsert_connections(db: Session, source_code: str,distances: dict):
     # recorro las conexiones que me manda el broker por cada ciudad
     for city_code, data in distances.items():
         # reviso si ya existe una conexión para esa ciudad
-        existing = db.query(CityConnection).filter_by(destination_code=city_code).first()
+        existing = db.query(CityConnection).filter_by(
+            source_code=source_code,
+            destination_code=city_code).first()
         if existing:
             # en este caso la actualizo con los nuevos datos que me manda el broker
             existing.destination_name = data.get("destinationName", city_code)
@@ -135,6 +244,7 @@ def upsert_connections(db: Session, distances: dict):
         # si no la creo
         else:
             conn = CityConnection(
+                source_code=source_code,
                 destination_code=city_code,
                 destination_name=data.get("destinationName", city_code),
                 distance=data.get("distance"),

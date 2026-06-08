@@ -24,3 +24,5 @@ Se utilizó Gemini como asistente para el desarrollo del backend de CityExpress.
 ### 4.
 **Prompt:** "Debo enviar un mensaje de auditor cuando se recibe la tabla de distancias?"
 **Respuesta:** No. El auditor de la central está diseñado exclusivamente para rastrear el ciclo de vida de los paquetes físicos.
+
+

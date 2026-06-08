@@ -8,6 +8,8 @@ from src.database import Base
 from src.models.package import Package
 from src.models.city_connection import CityConnection
 from src.models.package_event import PackageEvent
+from src.models.shipment_request import ShipmentRequest
+from src.models.payment import Payment
 
 # DB en memoria para tests
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -73,6 +75,7 @@ def test_update_package_status(db):
 # test para crear una conexión entre ciudades y verificar que se guarda correctamente
 def test_create_city_connection(db):
     conn = CityConnection(
+        source_code="LSN",
         destination_code="COR",
         destination_name="Coruscant",
         distance=1000.0,
@@ -88,6 +91,7 @@ def test_create_city_connection(db):
 # test para verificar que el campo enabled de una conexión entre ciudades se guarda correctamente
 def test_city_connection_disabled(db):
     conn = CityConnection(
+        source_code="LSN",
         destination_code="HGW",
         destination_name="Hogwarts",
         enabled=False
@@ -137,3 +141,149 @@ def test_package_event_relationship(db):
     result = db.query(Package).filter_by(id=pkg.id).first()
     assert len(result.events) == 1
     assert result.events[0].next_city_id == "HGW"
+
+    # helpers para ShipmentRequest y Payment
+def make_shipment_request(**kwargs):
+    defaults = {
+        "id": str(uuid.uuid4()),
+        "user_id": "auth0|testuser",
+        "origin_id": "LSN",
+        "destination_id": "HGW",
+        "height": 10.0,
+        "width": 10.0,
+        "depth": 10.0,
+        "criteria": "price",
+        "max_hops": 5,
+        "fprice": 1.0,
+        "status": "pending_quote",
+    }
+    defaults.update(kwargs)
+    return ShipmentRequest(**defaults)
+
+def make_payment(shipment_request_id, **kwargs):
+    defaults = {
+        "id": str(uuid.uuid4()),
+        "shipment_request_id": shipment_request_id,
+        "user_id": "auth0|testuser",
+        "status": "TRYING",
+        "amount": 15000,
+        "currency": "CLP",
+    }
+    defaults.update(kwargs)
+    return Payment(**defaults)
+
+
+# TEST DE SHIPMENT REQUEST
+
+# test para crear una solicitud de envío y verificar que se guarda correctamente
+def test_create_shipment_request(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+    result = db.query(ShipmentRequest).filter_by(id=sr.id).first()
+    assert result is not None
+    assert result.status == "pending_quote"
+
+# test para verificar que el status por defecto de una solicitud de envío es "pending_quote"
+def test_shipment_request_default_status(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+    assert sr.status == "pending_quote"
+
+# test para verificar que el precio por defecto de una solicitud de envío es 1.0
+def test_shipment_request_default_fprice(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+    assert sr.fprice == 1.0
+
+# test para actualizar el status de una solicitud de envío y verificar que se actualiza correctamente
+def test_shipment_request_update_status(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+    sr.status = "quoted"
+    sr.route_metric_cost = 12000.0
+    sr.hops_count = 3
+    sr.final_price = 15000
+    db.commit()
+    result = db.query(ShipmentRequest).filter_by(id=sr.id).first()
+    assert result.status == "quoted"
+    assert result.final_price == 15000
+
+
+# TEST DE PAYMENT
+
+# test para crear un pago asociado a una solicitud de envío y verificar que se guarda correctamente
+def test_create_payment(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+
+    payment = make_payment(sr.id, webpay_token="token-abc-123")
+    db.add(payment)
+    db.commit()
+
+    result = db.query(Payment).filter_by(id=payment.id).first()
+    assert result is not None
+    assert result.status == "TRYING"
+    assert result.amount == 15000
+
+# test para verificar que el status por defecto de un pago es "TRYING"
+def test_payment_default_status(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+
+    payment = make_payment(sr.id)
+    db.add(payment)
+    db.commit()
+    assert payment.status == "TRYING"
+
+# test para actualizar el status de un pago a "SUCCESS" y verificar que se actualiza correctamente
+def test_payment_update_to_success(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+
+    payment = make_payment(sr.id, webpay_token="token-abc-123")
+    db.add(payment)
+    db.commit()
+
+    payment.status = "SUCCESS"
+    payment.authorization_code = "AUTH-999"
+    db.commit()
+
+    result = db.query(Payment).filter_by(id=payment.id).first()
+    assert result.status == "SUCCESS"
+    assert result.authorization_code == "AUTH-999"
+
+# test para verificar que el campo webpay_token de un pago es único (idempotencia)
+def test_payment_webpay_token_unique(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+
+    p1 = make_payment(sr.id, webpay_token="token-duplicado")
+    p2 = make_payment(sr.id, webpay_token="token-duplicado")
+    db.add(p1)
+    db.commit()
+    db.add(p2)
+
+    with pytest.raises(Exception):
+        db.commit()
+
+#  test para verificar la relación entre solicitudes de envío y pagos (una solicitud de envío puede tener varios pagos asociados)
+def test_payment_shipment_request_relationship(db):
+    sr = make_shipment_request()
+    db.add(sr)
+    db.commit()
+
+    payment = make_payment(sr.id)
+    db.add(payment)
+    db.commit()
+
+    result = db.query(ShipmentRequest).filter_by(id=sr.id).first()
+    assert len(result.payments) == 1
+    assert result.payments[0].amount == 15000

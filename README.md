@@ -31,28 +31,58 @@
 
 Esta entrega implementa una arquitectura distribuida basada en microservicios, donde cada ciudad opera como un nodo dentro de la red CityExpress.
 
-## Puntos logrados
+## Puntos logrados E1
 Requisitos Funcionales
+
 - RF01 – Visualización de paquetes recibidos
 - RF02 – Visualización de conectividad entre ciudades
 - RF03 – Sistema de ruteo implementado
 - RF04 – Entrega de paquetes con validación
+
 Requisitos No Funcionales
 - RNF01 – Separación Backend / Frontend
 - RNF02 – Backend dockerizado y desplegado en EC2 usando ECR
 - RNF03 – Configuración de Budget Alerts en AWS
 - RNF04 – Implementacion de API Gateway con CORS
-Falta implementar el subdominio y tener la url del frontend, ya que una vez tenida deberia activar el Access-Control-Allow-Credentials y modificar el Access-Control-Allow-Origin
 - RNF05 – Comunicación mediante HTTPS
 - RNF06 – Autenticación implementada con Auth0
 - RNF07 – Validación de tokens mediante Custom Authorizer
 - RNF08 – Frontend desplegado en S3 + CloudFront
 - RNF09 – New Relic: APM y monitoreo de infraestructura
 - RNF10 – Reinicio automático de contenedores y retry con delay fibonacci
+
 Documentación
 - RDOC01 – Diagrama UML de Componentes
 - RDOC02 – Monitoreo en New Relic
 - RDOC03 – Procesos de ejecución.
+
+## Puntos logrados E2
+Requisitos Funcionales
+- RF01 – Creación de solicitud de envío de paquete con validación de dimensiones, alcanzabilidad y saltos.
+- RF02 – Cálculo y visualización de cotización antes del pago.
+- RF03 – Validación de transacción mediante Webpay con manejo de estados e idempotencia.
+- RF04 – Creación y envío de paquete al siguiente salto tras un pago exitoso.
+- RF05 – Vista de usuario para revisión de envíos, pagos y estados de compra.
+- RF06 – Sincronización y respuesta de tablas de distancia/costo entre ciudades.
+- RF07 – Ruteo de paquetes según criterio de precio o distancia, respetando maxHops.
+- RF08 – Acceso a la interfaz de administrador.
+
+Requisitos No Funcionales
+- RNF01 – Implementación de servicio asincrónico de jobs/workers para cálculo de rutas.
+- RNF02 – Manejo robusto y persistencia de estados de pago de Webpay.
+- RNF03 – Tolerancia a fallas en el ruteo distribuido.
+- RNF04 – Indicador de disponibilidad del servicio de jobs/workers en el frontend administrador.
+- RNF05 – Separación de permisos y vistas entre usuarios normales y administradores.
+- RNF06 – Despliegue del sistema de workers en AWS utilizando Serverless Framework o AWS SAM.
+- RNF07 – Persistencia de datos e implementación de idempotencia para pagos y paquetes.
+- RNF08 – Pipeline CI/CD para backend usando AWS CodeDeploy y ECR. 
+- RNF09 – Pipeline CI/CD para frontend con despliegue en AWS S3 y CloudFront.
+
+Documentación
+- RDOC01 – Diagrama UML de componentes actualizado.
+- RDOC02 – Documentación de la integración con WebPay.
+- RDOC03 – Documentación paso a paso del despliegue en Serverless/SAM.
+- RDOC04 – Documentación explicativa del pipeline CI/CD.
 
 ## Consideraciones Generales
 - El proyecto fue desarrollado utilizando Docker desde el inicio.

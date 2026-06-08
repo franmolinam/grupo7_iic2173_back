@@ -1,4 +1,4 @@
-# RDOC02: Documentación de Monitoreo con New Relic
+# RDOC02 (E1): Documentación de Monitoreo con New Relic
 
 ## Descripción General
 Este documento describe los pasos necesarios para instalar, configurar y verificar el monitoreo de la aplicación CityExpress-API utilizando New Relic como proveedor SaaS. Se incluye APM (Application Performance Monitoring) para seguimiento de requests HTTP e infraestructura de monitoreo de servidor.

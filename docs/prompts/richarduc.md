@@ -41,7 +41,6 @@ Se utilizó Gemini como asistente experto para el desarrollo del backend de City
 **Prompt:** Error por parámetro invalidado en API Gateway  
 **Respuesta:** Evita mappings manuales; define la variable en la Integration URI (ej. http://ec2-ip:8000/packages/{package_id}) y que el nombre coincida con la ruta.
 
-
 ### 9. Visualización de métricas en New Relic
 **Prompt:** ¿Dónde veo las métricas de la aplicación?  
 **Respuesta:** Revisa APM & Services para transacciones HTTP y Infrastructure para métricas de host (CPU, memoria, disco). Genera tráfico manual; datos tardan minutos en aparecer.
@@ -55,3 +54,26 @@ Contexto: Buscaba identificar que estaba funcionando en consumidor localmente pa
 **Prompt:** "que dice esto de aca: newrelic-infra | To fix the problem, use the -s option or set the environment variable TINI_SUBREAPER..."
 **Respuesta:** Al usar `pid: host` Tini ya no es PID 1; añade `TINI_SUBREAPER=1` en el contenedor o ignora si el agente se conecta correctamente.
 
+### 12. Estrategia de control de acceso y separación de roles con Auth0 (RNF05)
+**Prompt:** "Estoy diseñando la separación de roles (admin/usuario) usando los tokens de Auth0. ¿Qué estrategia me recomiendas para implementarlo en FastAPI?"
+**Respuesta:** Se recomendó una verificación en la capa de aplicación usando el campo `sub` del JWT y una lista en variables de entorno (`ADMIN_USERS`). Creando la función `is_admin()` y la dependencia de FastAPI `require_admin()` para restringir el acceso.
+
+### 13. Diseño de la API administrativa (RF08)
+**Prompt:** "Para el módulo administrativo del RF08, planifiqué exponer las entidades clave del sistema. ¿Esta estructura de endpoints que ideé es la óptima y más limpia según nuestro modelo de datos?"
+**Respuesta:** Se analizaron y validaron los endpoints independientes bajo un router de administración para auditar las cuatro entidades clave del sistema: `/jobs` (ruteo), `/routes` (rutas), `/packages` (paquetes) y `/payments` (pagos).
+
+### 14. Optimización de persistencia para rutas calculadas (RF08)
+**Prompt:** "Quiero optimizar el almacenamiento del panel administrador. ¿Es estrictamente necesario que cree una nueva tabla para el histórico de rutas o puedo reutilizar de alguna forma los modelos que ya tengo?"
+**Respuesta:** No es necesario. Se recomendó configurar el backend para reutilizar los campos nativos de trazabilidad (`full_path`, `next_hop`, `hops_count`, `route_metric_cost`) ya existentes en la tabla `ShipmentRequest`, evitando redundancia de datos.
+
+### 15. Validación de aislamiento de datos en envíos (RF05)
+**Prompt:** "Revisemos mi lógica en el endpoint `/shipments/my-shipments`. ¿Cómo puedo asegurar rigurosamente que mi query actual cumpla con el aislamiento estricto de datos por usuario del RF05?"
+**Respuesta:** Se validó que el query del ORM extrae el `sub` directamente del token autenticado y aplica un filtro forzado (`filter_by(user_id=user_id)`), impidiendo que un usuario acceda a datos de otros.
+
+### 16. Optimización y corrección del pipeline de CI/CD (RNF08)
+**Prompt:** "Creé un workflow en GitHub Actions. Quiero que revises los posible errores en el archivo YAML y ayudarme a corregirlos para que funcione correctamente."
+**Respuesta:** Se analizaron los logs de error del pipeline, corrigiendo los fallos en las etapas de autenticación y empaquetado. Se reestructuró el workflow para que, ante cada `push` en `main`, automatice de forma segura la autenticación en AWS, el login en ECR, y la construcción, etiquetado y subida sin errores de la nueva imagen Docker del backend.
+
+### 17. Configuración de secretos y variables en GitHub Actions
+**Prompt:** "Ya tengo estructurado el workflow de CI/CD, pero no quiero dejar expuestas mis credenciales de AWS en el código. ¿Como configuro las variables en github action? [imagen]" 
+**Respuesta:** Se guio en el proceso de configuración de *Repository Secrets* desde la interfaz de GitHub. Se recomendó centralizar estos valores mediante un bloque de entorno global (`env`) en la raíz del archivo YAML, invocando de forma segura secretos como `AWS_REGION`, `AWS_ACCOUNT_ID` y `ECR_REPOSITORY` para proteger la infraestructura sin comprometer la mantenibilidad.

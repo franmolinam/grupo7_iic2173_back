@@ -1,9 +1,15 @@
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 from src.auth_utils import validate_token
-from src.routes.packages import router as packages_router
+from src.routes.admin import router as admin_router
+from src.routes.config import router as config_router
 from src.routes.connections import router as connections_router
+from src.routes.packages import router as packages_router
+from src.routes.payments import router as payments_router
+from src.routes.shipments import router as shipments_router
+
 
 # inicialización de la app
 app = FastAPI(
@@ -60,6 +66,21 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content={"status": exc.status_code, "detail": exc.detail}
     )
-  
-app.include_router(packages_router)
+    
+app.include_router(admin_router)
 app.include_router(connections_router)
+app.include_router(packages_router)
+app.include_router(config_router)
+app.include_router(payments_router)
+app.include_router(shipments_router)
+
+from src.auth_utils import validate_token, is_admin
+@app.get("/me")
+def get_me(
+    payload: dict = Depends(validate_token)
+):
+    return {
+        "user_id": payload.get("sub"),
+        "is_admin": is_admin(payload),
+        "claims": payload
+    }

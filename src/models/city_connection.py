@@ -6,6 +6,7 @@ class CityConnection(Base):
     __tablename__ = "city_connections"
 
     # campos de la conexión entre ciudades
+    source_code = Column(String, primary_key=True)
     destination_code = Column(String, primary_key=True)
     destination_name = Column(String, nullable=False)
     distance = Column(Float, nullable=True)
