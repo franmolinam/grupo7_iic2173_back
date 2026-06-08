@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
 from src.database import get_db
+from src.auth_utils import require_admin
 from src.services.package_service import (
     get_all_packages,
     get_package_by_id,
@@ -28,7 +29,8 @@ def list_packages(
     priority_class: Optional[str] = None,
     payment: Optional[int] = None,
     constraints: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: dict = Depends(require_admin)
 ):
     # listar todos los paquetes recibidos
     from src.models.package import Package
@@ -89,7 +91,7 @@ def list_packages(
 
 # para el endpoint de packages/id, retorno el detalle de un paquete específico, con todos los campos que tengo en la base de datos
 @router.get("/{package_id}")
-def get_package(package_id: str, db: Session = Depends(get_db)):
+def get_package(package_id: str, db: Session = Depends(get_db), _: dict = Depends(require_admin)):
     # busco por id 
     pkg = get_package_by_id(db, package_id)
     if not pkg:
@@ -98,7 +100,7 @@ def get_package(package_id: str, db: Session = Depends(get_db)):
 
 # endpoint de packages/id/deliver para concretar la entrega de un paquete, validando deliverNotBefore
 @router.post("/{package_id}/deliver")
-def deliver_package(package_id: str, db: Session = Depends(get_db)):
+def deliver_package(package_id: str, db: Session = Depends(get_db), _: dict = Depends(require_admin)):
     # manejo la entrega del paquete con la función que tengo en el handler, que me devuelve el paquete actualizado y un mensaje de lo que pasó
     pkg, msg = handle_package_delivered(db, package_id)
 
