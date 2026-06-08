@@ -100,7 +100,7 @@ def get_package(package_id: str, db: Session = Depends(get_db), _: dict = Depend
 
 # endpoint de packages/id/deliver para concretar la entrega de un paquete, validando deliverNotBefore
 @router.post("/{package_id}/deliver")
-def deliver_package(package_id: str, db: Session = Depends(get_db), _: dict = Depends(require_admin)):
+def deliver_package(package_id: str, db: Session = Depends(get_db)):
     # manejo la entrega del paquete con la función que tengo en el handler, que me devuelve el paquete actualizado y un mensaje de lo que pasó
     pkg, msg = handle_package_delivered(db, package_id)
 

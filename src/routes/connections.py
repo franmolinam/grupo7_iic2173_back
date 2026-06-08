@@ -9,7 +9,7 @@ router = APIRouter(prefix="/connections", tags=["connections"])
 
 # listar estado conexiones entre ciudades
 @router.get("")
-def list_connections(db: Session = Depends(get_db), _: dict = Depends(require_admin)):
+def list_connections(db: Session = Depends(get_db)):
     # listar todas las conexiones entre ciudades  (deberían ser las 16 q hay)
     connections = get_all_connections(db)
     return {
