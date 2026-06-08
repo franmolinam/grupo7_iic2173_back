@@ -272,7 +272,6 @@ def test_get_quotation_precio_maximo():
         result = get_quotation("HGW", 1000, 1000, 1000, "price", 1, 2.0)
         assert result["final_price"] == 100000
 
-# ─── HELPERS PARA RF04 ────────────────────────────────────────────
 # Estos helpers crean ShipmentRequest y Payment en la base de datos para luego probar la función create_and_send_package, que es la que se encarga de crear el paquete y enviarlo a RabbitMQ. De esta forma, podemos probar create_and_send_package en un entorno lo más realista posible, con datos en la base de datos y sin mocks (salvo el canal de RabbitMQ para no depender de una instancia real).
 def make_shipment_request(db, **kwargs):
     defaults = {
@@ -318,8 +317,6 @@ def make_payment(db, shipment_id, **kwargs):
     db.refresh(p)
     return p
 
-
-# ─── TESTS DE create_and_send_package (RF04) ──────────────────────
 # Estos tests verifican que la función create_and_send_package crea el paquete con los datos correctos, que es idempotente, que registra un evento al crear el paquete, que incluye el criterio en constraints, que decrementa maxHops en el mensaje publicado, que publica a la ciudad correcta según nextHop o destinationId, y que no falla si hay un error al obtener el canal de RabbitMQ (en cuyo caso el paquete igual se guarda en la base de datos).
 def test_create_and_send_package_crea_paquete(db):
     sr = make_shipment_request(db)
@@ -427,8 +424,6 @@ def test_create_and_send_package_no_falla_si_mqtt_error(db):
 
     assert pkg is not None
     assert db.query(Package).filter_by(id=pkg.id).first() is not None
-
-# ─── TESTS DE get_routes (JobsMaster real) ────────────────────────
 
 MOCK_JOB_RESPONSE = {
     "status": "done",
@@ -541,8 +536,6 @@ def test_get_routes_timeout_en_polling_get():
         result = get_routes("LSN", "HGW", "price")
     assert result["status"] == "done"
 
-
-# ─── TESTS DE check_heartbeat ─────────────────────────────────────
 # test para verificar que check_heartbeat retorna True cuando el JobsMaster responde con status 200
 def test_check_heartbeat_ok():
     mock = MagicMock()

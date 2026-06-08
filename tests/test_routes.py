@@ -511,7 +511,6 @@ def test_callback_token_not_found(client):
     response = client.post("/payments/callback", json={"token_ws": "token-inexistente"})
     assert response.status_code == 404  
 
-# ─── TESTS DE GET /shipments/my-shipments (RF05) ──────────────────
 # Para estos tests se asume que el endpoint de creación de shipments funciona correctamente, por lo que se insertan ShipmentRequest de prueba directamente en la base de datos usando un helper (seed_shipment) en vez de crear shipments a través del endpoint POST /shipments.
 # test para verificar que si el usuario no tiene shipments retorna lista vacía
 def test_my_shipments_empty(client):
@@ -628,8 +627,6 @@ def test_my_shipments_orden_descendente(client):
     ids = [s["id"] for s in response.json()]
     assert ids[0] == sr2.id  # el más reciente primero
 
-
-# ─── TESTS DE RF04 EN EL CALLBACK ─────────────────────────────────
 # test para verificar que con pago exitoso, se crea un paquete asociado al shipment y el estado del shipment se actualiza a "forwarded"
 def test_callback_success_crea_paquete_y_estado_forwarded(client):
     sr = seed_shipment(client, status="paying")
@@ -705,7 +702,6 @@ def test_callback_success_sin_shipment_no_crea_paquete(client):
     assert response.status_code == 200
     mock_create.assert_not_called()
 
-# ─── TESTS DE GET /config/fprice y PUT /config/fprice ─────────────
 # test para verificar que si no hay registro en la base de datos para fprice, el endpoint GET /config/fprice retorna el valor default definido en el .env (1.0)
 def test_get_fprice_default(client):
     response = client.get("/config/fprice")
@@ -777,8 +773,6 @@ def test_put_fprice_requiere_auth(client):
     app.dependency_overrides[validate_token] = lambda: {"sub": "auth0|testuser"}
     assert response.status_code in (401, 403)
 
-
-# ─── TESTS DE GET /jobs/heartbeat (RNF04) ─────────────────────────
 # Para estos tests se asume que la función check_heartbeat que verifica el estado del worker de procesamiento de paquetes funciona correctamente, por lo que se mockea para no depender de la lógica interna de esa función ni del estado real del worker durante los tests.
 # test para verificar que si check_heartbeat retorna True, el endpoint GET /jobs/heartbeat retorna alive: true
 def test_jobs_heartbeat_alive(client):
