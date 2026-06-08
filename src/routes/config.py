@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 
 from src.database import get_db
-from src.auth_utils import validate_token
 from src.models.branch_config import BranchConfig
+from src.auth_utils import require_admin
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -40,8 +40,7 @@ def read_fprice(db: Session = Depends(get_db)):
 def update_fprice(
     body: FpriceUpdate,
     db: Session = Depends(get_db),
-    payload: dict = Depends(validate_token),
-    #payload = {"sub": "test-user"}  # temporal
+    _: dict = Depends(require_admin)
 ):
     row = db.query(BranchConfig).filter_by(key="fprice").first()
     if row:
