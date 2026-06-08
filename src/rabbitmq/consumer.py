@@ -48,7 +48,7 @@ def start_consumer():
         virtual_host="fulfillment",
         credentials=credenciales,
         ssl_options=ssl_options,
-        heartbeat=60 # Esta linea mantiene viva la conexion
+        heartbeat=60, # Esta linea mantiene viva la conexion
     )
 
     try:
@@ -141,7 +141,7 @@ def start_consumer():
                             enviar_reporte_auditor(ch, resultado['package_id'], "expired")
                         
                         elif accion == "pending_routing":
-                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {resultado.get('destination_id', 'Unknown')}. Guardado como pending-routing.")
+                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get("destinationId", "").upper()}. Guardado como pending-routing.")
 
                         # Reenvio a otra ciudad
                         elif accion == "forward":
@@ -181,32 +181,42 @@ def start_consumer():
                     db = SessionLocal()
                     try:
                         print("[*] Procesando actualizacion de tabla de distancias/costos...")
-                        # Primero se obtiene el origen del mensaje
-                        origen = mensaje.get("cityId")
+                        # Primero se obtiene el contenido
+                        body_data = mensaje.get("body", {})
+                        rutas = body_data.get("routes", [])
 
-                        # Luego se extrae el diccionario de distancias
-                        distancias = mensaje.get("data", {}).get("distances", {})
+                        distancias_formateadas = {}
+
+                        # Central o de otra ciudad
+                        origen_real = body_data.get("cityCode") if "cityCode" in body_data else ciudad_origen
+
+                        if rutas:
+                            # Convertir el arreglo 'routes' al formato de diccionario que espera tu DB
+                            for ruta in rutas:
+                                distancias_formateadas[ruta["destinationCode"]] = ruta
+                        else:
+                            distancias_formateadas = mensaje.get("data", {}).get("distances", {})
                         
-                        if distancias and origen:
-                            handle_distance_table(db, CODIGO_CIUDAD, distancias)
+                        if distancias_formateadas and origen_real!="Desconocido":
+                            handle_distance_table(db, CODIGO_CIUDAD, distancias_formateadas)
                             print("[*] Tabla de distancias actualizada exitosamente en la base de datos")
                             
-                            # RF06: Si la tabla viene de la central, se piden la tablas de las demas ciudades
-                            if ciudad_origen.lower() == "central":
+                            # Si la tabla viene de la central, se piden la tablas de las demas ciudades
+                            if "cityCode" in body_data: 
                                 print("[*] Nueva tabla de la central. Solicitando tablas a las otras ciudades...")
                                 request_distancias = {
                                     "idpk": str(uuid.uuid4()),
                                     "msgId": str(uuid.uuid4()),
                                     "type": "request",
                                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                                    "cityId": CODIGO_CIUDAD,
+                                    "source": CODIGO_CIUDAD,
                                     "data": {
                                         "ask": "distance-table"
                                     }
                                 }
                                 
                                 # Luego se itera sobre las ciudades de la tabla guardada para enviarles el request
-                                for destino in distancias.keys():
+                                for destino in distancias_formateadas.keys():
                                     if destino.upper() != CODIGO_CIUDAD.upper():
                                         publicar_mensaje(
                                             channel=ch,
@@ -223,7 +233,14 @@ def start_consumer():
                 elif mensaje.get("type") == "request" and mensaje.get("data", {}).get("ask") == "distance-table":
                     db = SessionLocal()
                     try:
-                        print(f"[*] Solicitud de tabla recibida de: {ciudad_origen}. Preparando respuesta...")
+                        ciudad_solicitante = mensaje.get("source") or mensaje.get("cityId") or "Desconocido"
+
+                        if ciudad_solicitante == "Desconocido":
+                             print("[!] Advertencia: Solicitud de tabla sin 'source' ni 'cityId'. Ignorando.")
+                             ch.basic_ack(delivery_tag=method.delivery_tag)
+                             return
+
+                        print(f"[*] Solicitud de tabla recibida de: {ciudad_solicitante}. Preparando respuesta...")
 
                         # Se prepara y publica el mensaje ACK
                         respuesta_ack = {
@@ -238,10 +255,10 @@ def start_consumer():
                         publicar_mensaje(
                             channel=ch,
                             exchange='fulfillment.x',
-                            routing_key=f"city.{ciudad_origen.lower()}",
+                            routing_key=f"city.{ciudad_solicitante.lower()}",
                             message_dict=respuesta_ack
                         )
-                        print(f"[*] ACK enviado a {ciudad_origen} por solicitud de tabla de distancias.")
+                        print(f"[*] ACK enviado a {ciudad_solicitante} por solicitud de tabla de distancias.")
 
                         # Primero se obtiene la tabla local
                         local_distances = get_local_distance_table(db)

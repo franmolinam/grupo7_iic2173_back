@@ -31,12 +31,9 @@ def _get_rabbitmq_channel():
     conexion = pika.BlockingConnection(parameters)
     return conexion, conexion.channel()
 
-
+# Crea el Package en BD y lo publica al siguiente salto via MQTT. Idempotente: si ya existe paquete para este shipment, lo retorna sin re-enviar.
 def create_and_send_package(db: Session, shipment, payment) -> Package:
-    """
-    RF04: Crea el Package en BD y lo publica al siguiente salto via MQTT.
-    Idempotente: si ya existe paquete para este shipment, lo retorna sin re-enviar.
-    """
+    
     existing = db.query(Package).filter_by(shipment_request_id=shipment.id).first()
     if existing:
         return existing

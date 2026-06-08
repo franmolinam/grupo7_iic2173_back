@@ -11,7 +11,7 @@ custom:
 provider:
   name: aws
   runtime: python3.10
-  region: us-east-2   # O la región que estén usando en AWS
+  region: us-east-2   
   timeout: 20
   httpApi:
     cors: true # Esto es necesario para el frontend
