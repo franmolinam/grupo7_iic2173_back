@@ -2,8 +2,13 @@ version: 0.0
 
 os: linux
 
+file_exists_behavior: OVERWRITE
+
 files:
-  - source: /
+  - source: docker-compose.prod.yml
+    destination: /home/ubuntu
+
+  - source: nginx.conf
     destination: /home/ubuntu
 
 hooks:
