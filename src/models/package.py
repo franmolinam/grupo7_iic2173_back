@@ -22,6 +22,10 @@ class Package(Base):
     delivery_strategy = Column(String, nullable=True)
     shipment_request_id = Column(String, ForeignKey("shipment_requests.id"), nullable=True)
 
+    # para q sea seguro 
+    is_insured = Column(Boolean, default=False)
+    insurance_premium = Column(Integer, nullable=True)
+
     # campos que tengo que sumar para el seguimiento
     # Estado actual del paquete en nuestra ciudad
     status = Column(String, nullable=False, default="received")

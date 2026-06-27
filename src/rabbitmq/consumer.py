@@ -17,6 +17,7 @@ from src.handlers.package_handler import (
 )
 
 from src.database import SessionLocal
+from src.services.package_service import get_package_by_id
 
 # Cargar variables del .env
 load_dotenv()
@@ -137,8 +138,32 @@ def start_consumer():
                         
                         elif accion == "expire":
                             print(f"[*] Paquete {resultado['package_id']} expiró (maxHops=0).")
+                            pkg_expirado = get_package_by_id(db, resultado['package_id'])
                             handle_package_expired(db, resultado['package_id'])
                             enviar_reporte_auditor(ch, resultado['package_id'], "expired")
+
+                            # Notificar a ciudad origen si el paquete era asegurado
+                            if pkg_expirado and pkg_expirado.is_insured:
+                                origen = pkg_expirado.origin_id.lower()
+                                notificacion = {
+                                    "idpk": str(uuid.uuid4()),
+                                    "msgId": str(uuid.uuid4()),
+                                    "type": "package-status",
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "cityId": CODIGO_CIUDAD,
+                                    "data": {
+                                        "pkgId": resultado['package_id'],
+                                        "status": "expired",
+                                        "reason": "Paquete asegurado no pudo ser entregado: maxHops agotados",
+                                    },
+                                }
+                                publicar_mensaje(
+                                    channel=ch,
+                                    exchange='fulfillment.x',
+                                    routing_key=f"city.{origen}",
+                                    message_dict=notificacion,
+                                )
+                                print(f"[*] Notificación expired enviada a ciudad origen: {origen}")
                         
                         elif accion == "pending_routing":
                             print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get("destinationId", "").upper()}. Guardado como pending-routing.")

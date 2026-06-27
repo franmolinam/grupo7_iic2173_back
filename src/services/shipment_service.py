@@ -17,9 +17,12 @@ def validate_dimensions(height: float, width: float, depth: float) -> None:
         )
 
 
-def calculate_price(h: float, w: float, d: float, route_metric_cost: float, fprice: float) -> int:
+def calculate_price(h: float, w: float, d: float, route_metric_cost: float, fprice: float, insured: bool = False) -> int:
     raw = 0.01 * (h + w + d) * route_metric_cost * fprice
-    return int(max(MIN_PRICE, min(MAX_PRICE, raw)))
+    base = int(max(MIN_PRICE, min(MAX_PRICE, raw)))
+    if insured:
+        base = int(base * 1.05)
+    return base
 
 
 def get_quotation(
@@ -30,6 +33,7 @@ def get_quotation(
     criteria: str,
     max_hops: int,
     fprice: float,
+    insured: bool = False,
 ) -> dict:
     # 1. Validar dimensiones
     validate_dimensions(height, width, depth)
@@ -55,7 +59,8 @@ def get_quotation(
 
     # 5. Calcular precio
     route_metric_cost = route["routeMetricCost"]
-    final_price = calculate_price(height, width, depth, route_metric_cost, fprice)
+    final_price = calculate_price(height, width, depth, route_metric_cost, fprice, insured)
+    insurance_premium = int(final_price - int(final_price / 1.05)) if insured else 0
 
     # El siguiente salto es el segundo elemento del array hops
     next_hop = route["hops"][1] if len(route["hops"]) > 1 else destination_upper
@@ -68,4 +73,5 @@ def get_quotation(
         "full_path": route["hops"],
         "fprice": fprice,
         "final_price": final_price,
+        "insurance_premium": insurance_premium,
     }
