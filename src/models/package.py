@@ -1,6 +1,5 @@
 from sqlalchemy import Column, ForeignKey, String, Integer, DateTime, Boolean, JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime, timezone
 from src.database import Base
 
 # modelo de paquete
@@ -21,6 +20,10 @@ class Package(Base):
     constraints = Column(JSON, nullable=True)
     delivery_strategy = Column(String, nullable=True)
     shipment_request_id = Column(String, ForeignKey("shipment_requests.id"), nullable=True)
+
+    # para q sea seguro 
+    is_insured = Column(Boolean, default=False)
+    insurance_premium = Column(Integer, nullable=True)
 
     # campos que tengo que sumar para el seguimiento
     # Estado actual del paquete en nuestra ciudad

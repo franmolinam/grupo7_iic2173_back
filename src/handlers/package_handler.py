@@ -1,15 +1,11 @@
-from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from src.services.package_service import (
     save_package,
     update_package_status,
     deliver_package,
     upsert_connections,
-    get_package_by_id,
     get_all_connections
 )
-from src.models.city_connection import CityConnection
-import random
 import requests
 import time
 
