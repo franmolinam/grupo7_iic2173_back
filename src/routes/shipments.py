@@ -108,7 +108,7 @@ def create_shipment(
         "fprice": shipment.fprice,
         "final_price": shipment.final_price,
         "is_insured": shipment.is_insured,
-        "insurance_premium": quotation["insurance_premium"],
+        "insurance_premium": quotation.get("insurance_premium", 0),
         "created_at": shipment.created_at,
     }
 
