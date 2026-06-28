@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, DateTime, JSON
+from sqlalchemy import Boolean, Column, String, Integer, Float, DateTime, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from src.database import Base
@@ -24,6 +24,7 @@ class ShipmentRequest(Base):
     max_hops = Column(Integer, nullable=False)
     deliver_not_before = Column(DateTime, nullable=True)
     meta_content = Column(String, nullable=True)
+    is_insured = Column(Boolean, nullable=False, default=False)
 
     # aplicación debe debe calcular y mostrar una cotización
     # incluyendo criterio usado, routeMetricCost, cantidad de saltos, siguiente salto o ruta, f_price y precio final

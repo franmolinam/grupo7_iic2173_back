@@ -33,7 +33,6 @@ def _get_rabbitmq_channel():
 
 # Crea el Package en BD y lo publica al siguiente salto via MQTT. Idempotente: si ya existe paquete para este shipment, lo retorna sin re-enviar.
 def create_and_send_package(db: Session, shipment, payment) -> Package:
-    
     existing = db.query(Package).filter_by(shipment_request_id=shipment.id).first()
     if existing:
         return existing
@@ -45,6 +44,10 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
     if hasattr(deliver_not_before, 'tzinfo') and deliver_not_before.tzinfo is None:
         deliver_not_before = deliver_not_before.replace(tzinfo=timezone.utc)
 
+    # calcular prima por seguridad
+    is_insured = bool(getattr(shipment, "is_insured", False))
+    insurance_premium = int(payment.amount * 0.05) if is_insured else None
+
     pkg = Package(
         id=pkg_id,
         origin_id=shipment.origin_id,
@@ -55,6 +58,8 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
         meta_content=shipment.meta_content,
         constraints={"criteria": shipment.criteria},
         payment=payment.amount,
+        is_insured=is_insured,
+        insurance_premium=insurance_premium,
         status="forwarded",
         last_action="forwarded",
         last_processed_at=now,
@@ -74,7 +79,7 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
         "maxHops": pkg.max_hops - 1,  # descontamos el salto inicial
         "createdAt": now.isoformat(),
         "deliverNotBefore": deliver_not_before.isoformat(),
-        "metaContent": pkg.meta_content,
+        "metaContent": {"insured": is_insured} if is_insured else pkg.meta_content,
         "constraints": {"criteria": shipment.criteria},
         "payment": pkg.payment,
     }
@@ -139,6 +144,21 @@ def save_package(db: Session, package_data: dict) -> Package:
     existing = get_package_by_id(db, package_data["id"])
     if existing:
         return existing
+    
+    # leer insured desde metaContent
+    raw_meta = package_data.get("metaContent")
+    meta_dict = {}
+    if isinstance(raw_meta, dict):
+        meta_dict = raw_meta
+    elif isinstance(raw_meta, str):
+        try:
+            import json as _json
+            meta_dict = _json.loads(raw_meta)
+        except Exception:
+            pass
+    is_insured = bool(meta_dict.get("insured", False))
+    base_payment = package_data.get("payment") or 0
+    insurance_premium = int(base_payment * 0.05) if is_insured else None
 
     # todos los campos que vienen en el paquete, más los campos de seguimiento que cree
     pkg = Package(
@@ -154,6 +174,8 @@ def save_package(db: Session, package_data: dict) -> Package:
         payment=package_data.get("payment"),
         constraints=package_data.get("constraints", {}),
         delivery_strategy=package_data.get("deliveryStrategy"),
+        is_insured=is_insured,
+        insurance_premium=insurance_premium,
         status="received",
         last_action="received",
         last_processed_at=datetime.now(timezone.utc),

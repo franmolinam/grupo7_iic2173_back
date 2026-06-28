@@ -13,7 +13,7 @@ from src.models.package import Package
 from src.models.city_connection import CityConnection
 from unittest.mock import patch
 from src.models.shipment_request import ShipmentRequest
-from src.auth_utils import validate_token
+from src.auth_utils import validate_token, require_admin
 
 # Archivo temporal nuevo por cada test
 @pytest.fixture
@@ -37,6 +37,7 @@ def client():
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[validate_token] = override_validate_token
+    app.dependency_overrides[require_admin] = override_validate_token
 
     # guardo SessionLocal para los seeds
     client_obj = TestClient(app)
@@ -766,11 +767,12 @@ def test_put_fprice_acepta_limites_exactos(client):
 def test_put_fprice_requiere_auth(client):
     """Sin override de auth debería fallar — verificamos que el dep está puesto."""
     # Removemos el override de validate_token temporalmente
-    from src.auth_utils import validate_token
     del app.dependency_overrides[validate_token]
+    del app.dependency_overrides[require_admin]
     response = client.put("/config/fprice", json={"value": 1.5})
     # Restaurar
-    app.dependency_overrides[validate_token] = lambda: {"sub": "auth0|testuser"}
+    app.dependency_overrides[validate_token] = lambda: {"sub": "auth0|testadmin"}
+    app.dependency_overrides[require_admin] = lambda: {"sub": "auth0|testadmin"}
     assert response.status_code in (401, 403)
 
 # Para estos tests se asume que la función check_heartbeat que verifica el estado del worker de procesamiento de paquetes funciona correctamente, por lo que se mockea para no depender de la lógica interna de esa función ni del estado real del worker durante los tests.
