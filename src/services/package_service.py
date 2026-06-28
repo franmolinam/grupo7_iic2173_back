@@ -246,8 +246,11 @@ def deliver_package(db: Session, package_id: str) -> tuple[Optional[Package], st
 # Funciones para city connections
 
 # Obtener todas las conexiones de ciudades para el RF de connections
-def get_all_connections(db: Session):
-    return db.query(CityConnection).all()
+def get_all_connections(db: Session, source_code: str = None):
+    query = db.query(CityConnection)
+    if source_code:
+        query = query.filter(CityConnection.source_code == source_code)
+    return query.all()
 
 # Actualizar o insertar las conexiones de ciudades a partir de la tabla de distancias del broker
 def upsert_connections(db: Session, source_code: str,distances: dict):

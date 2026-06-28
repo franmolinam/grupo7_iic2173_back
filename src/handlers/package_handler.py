@@ -98,7 +98,7 @@ def handle_package_delivered(db: Session, package_id: str) -> tuple:
 
 # Leer las conexiones de la DB local y enviarlas en un mensaje 'cost-update' a otras ciudades.
 def get_local_distance_table(db: Session) -> dict:
-    conexiones = get_all_connections(db)
+    conexiones = get_all_connections(db, source_code=CIUDAD_PROPIA)
     distances = {}
     for conn in conexiones:
         distances[conn.destination_code] = {
