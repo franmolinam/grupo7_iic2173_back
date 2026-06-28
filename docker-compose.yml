@@ -8,17 +8,21 @@ services:
     volumes:
       - ./src:/app/src
       - ./newrelic.ini:/app/newrelic.ini:ro
+      - ~/.aws:/root/.aws:ro
     # Reescribe el CMD del dockerfile para desarrollo
-    command: sh -c "python3 -c 'from src.database import engine, Base; from src.models import Package, CityConnection, PackageEvent, ShipmentRequest, Payment, RoutingJob; Base.metadata.create_all(bind=engine)' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "python3 -c 'from src.database import engine, Base; from src.models import Package, CityConnection, PackageEvent, ShipmentRequest, Payment, RoutingJob, Subscription, SubscriptionPackage; Base.metadata.create_all(bind=engine)' && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
     env_file:
       - .env
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL_SERVERLESS}
       - AUTH0_DOMAIN=${AUTH0_DOMAIN}
       - AUTH0_AUDIENCE=${AUTH0_AUDIENCE}
       - NEW_RELIC_CONFIG_FILE=/app/newrelic.ini
       - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
       - NEW_RELIC_APP_NAME=CityExpress-API-Dev
+      - SUBSCRIPTION_STATE_MACHINE_ARN=${SUBSCRIPTION_STATE_MACHINE_ARN}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_DEFAULT_PROFILE=cityexpress
     # agregue esto pq la API arranca antes q la DB esté lista
     depends_on:
       db:

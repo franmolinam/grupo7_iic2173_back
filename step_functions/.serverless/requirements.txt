@@ -1,0 +1,3 @@
+boto3
+pika
+psycopg2-binary

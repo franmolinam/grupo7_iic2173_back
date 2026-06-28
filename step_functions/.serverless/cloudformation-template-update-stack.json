@@ -1,0 +1,421 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "The AWS CloudFormation template for this Serverless application",
+  "Resources": {
+    "ServerlessDeploymentBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ServerlessDeploymentBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "ServerlessDeploymentBucket"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "ServerlessDeploymentBucket"
+                      },
+                      "/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "ServerlessDeploymentBucket"
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": false
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "CheckSubscriptionLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/cityexpress-subscriptions-dev-checkSubscription"
+      }
+    },
+    "ExecuteDeliveryLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/cityexpress-subscriptions-dev-executeDelivery"
+      }
+    },
+    "IamRoleLambdaExecution": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": {
+              "Fn::Join": [
+                "-",
+                [
+                  "cityexpress-subscriptions",
+                  "dev",
+                  "lambda"
+                ]
+              ]
+            },
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:CreateLogGroup",
+                    "logs:TagResource"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/cityexpress-subscriptions-dev*:*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/cityexpress-subscriptions-dev*:*:*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "states:StartExecution",
+                    "states:DescribeExecution",
+                    "states:StopExecution"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "Path": "/",
+        "RoleName": {
+          "Fn::Join": [
+            "-",
+            [
+              "cityexpress-subscriptions",
+              "dev",
+              {
+                "Ref": "AWS::Region"
+              },
+              "lambdaRole"
+            ]
+          ]
+        }
+      }
+    },
+    "CheckSubscriptionLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/cityexpress-subscriptions/dev/1782633832494-2026-06-28T08:03:52.494Z/cityexpress-subscriptions.zip"
+        },
+        "Handler": "handler.check_subscription",
+        "Runtime": "python3.10",
+        "FunctionName": "cityexpress-subscriptions-dev-checkSubscription",
+        "MemorySize": 1024,
+        "Timeout": 30,
+        "Description": "Verifica si la suscripcion debe continuar segun budget y cantidad",
+        "Environment": {
+          "Variables": {
+            "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+            "RABBITMQ_HOST": "broker.iic2173.org",
+            "RABBITMQ_PORT": "5671",
+            "RABBITMQ_USER": "city.lsn",
+            "RABBITMQ_PASSWORD": "sh0mxT96I8Ectva6mBUSN3_G",
+            "CODIGO_CIUDAD": "LSN"
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "CheckSubscriptionLogGroup"
+      ]
+    },
+    "ExecuteDeliveryLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/cityexpress-subscriptions/dev/1782633832494-2026-06-28T08:03:52.494Z/cityexpress-subscriptions.zip"
+        },
+        "Handler": "handler.execute_delivery",
+        "Runtime": "python3.10",
+        "FunctionName": "cityexpress-subscriptions-dev-executeDelivery",
+        "MemorySize": 1024,
+        "Timeout": 30,
+        "Description": "Crea y envia un paquete de suscripcion via RabbitMQ",
+        "Environment": {
+          "Variables": {
+            "DATABASE_URL": "postgresql://grupo7:grupo7_arquisis@13.59.84.29:5432/cityexpress",
+            "RABBITMQ_HOST": "broker.iic2173.org",
+            "RABBITMQ_PORT": "5671",
+            "RABBITMQ_USER": "city.lsn",
+            "RABBITMQ_PASSWORD": "sh0mxT96I8Ectva6mBUSN3_G",
+            "CODIGO_CIUDAD": "LSN"
+          }
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "ExecuteDeliveryLogGroup"
+      ]
+    },
+    "CheckSubscriptionLambdaVersionmffrhdaFkCBr9X9QXlEI36cvmynZcLywq32GJlTqiM": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "CheckSubscriptionLambdaFunction"
+        },
+        "CodeSha256": "c7nD+VaQ9q9scLTY8kcrexUCG4KvrWfAMSbsY93HrVk=",
+        "Description": "Verifica si la suscripcion debe continuar segun budget y cantidad"
+      }
+    },
+    "ExecuteDeliveryLambdaVersioneFfJu0GeHuCzu7U4FsYu03liOUghn83IxBzaFvw2ro": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "ExecuteDeliveryLambdaFunction"
+        },
+        "CodeSha256": "c7nD+VaQ9q9scLTY8kcrexUCG4KvrWfAMSbsY93HrVk=",
+        "Description": "Crea y envia un paquete de suscripcion via RabbitMQ"
+      }
+    },
+    "CityexpressDashsubscriptionDashdeliveryRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": {
+                  "Fn::Sub": "states.${AWS::Region}.amazonaws.com"
+                }
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "dev-cityexpress-subscriptions-statemachine",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "CheckSubscriptionLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "CheckSubscriptionLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "ExecuteDeliveryLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "ExecuteDeliveryLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "CityexpressDashsubscriptionDashdelivery": {
+      "Type": "AWS::StepFunctions::StateMachine",
+      "Properties": {
+        "DefinitionString": {
+          "Fn::Sub": [
+            "{\n  \"Comment\": \"CityExpress - State machine para entregas con suscripcion periodica\",\n  \"StartAt\": \"CheckSubscription\",\n  \"States\": {\n    \"CheckSubscription\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${df2186b6db57aaf3a5683e248183c199}\",\n      \"Next\": \"ShouldContinueDelivery\",\n      \"ResultPath\": \"$\",\n      \"Retry\": [\n        {\n          \"ErrorEquals\": [\n            \"States.ALL\"\n          ],\n          \"IntervalSeconds\": 5,\n          \"MaxAttempts\": 3,\n          \"BackoffRate\": 2\n        }\n      ]\n    },\n    \"ShouldContinueDelivery\": {\n      \"Type\": \"Choice\",\n      \"Choices\": [\n        {\n          \"Variable\": \"$.should_continue\",\n          \"BooleanEquals\": true,\n          \"Next\": \"ExecuteDelivery\"\n        }\n      ],\n      \"Default\": \"SubscriptionComplete\"\n    },\n    \"ExecuteDelivery\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${26275bb7b486f148db337c4a622364b3}\",\n      \"Next\": \"WaitForNextDelivery\",\n      \"ResultPath\": \"$\",\n      \"Retry\": [\n        {\n          \"ErrorEquals\": [\n            \"States.ALL\"\n          ],\n          \"IntervalSeconds\": 5,\n          \"MaxAttempts\": 3,\n          \"BackoffRate\": 2\n        }\n      ]\n    },\n    \"WaitForNextDelivery\": {\n      \"Type\": \"Wait\",\n      \"SecondsPath\": \"$.periodicity_seconds\",\n      \"Next\": \"CheckSubscription\"\n    },\n    \"SubscriptionComplete\": {\n      \"Type\": \"Succeed\"\n    }\n  }\n}",
+            {
+              "df2186b6db57aaf3a5683e248183c199": {
+                "Fn::GetAtt": [
+                  "CheckSubscriptionLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "26275bb7b486f148db337c4a622364b3": {
+                "Fn::GetAtt": [
+                  "ExecuteDeliveryLambdaFunction",
+                  "Arn"
+                ]
+              }
+            }
+          ]
+        },
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "CityexpressDashsubscriptionDashdeliveryRole",
+            "Arn"
+          ]
+        },
+        "StateMachineName": "cityexpress-subscription-delivery"
+      },
+      "DependsOn": [
+        "CityexpressDashsubscriptionDashdeliveryRole"
+      ]
+    }
+  },
+  "Outputs": {
+    "ServerlessDeploymentBucketName": {
+      "Value": {
+        "Ref": "ServerlessDeploymentBucket"
+      },
+      "Export": {
+        "Name": "sls-cityexpress-subscriptions-dev-ServerlessDeploymentBucketName"
+      }
+    },
+    "CheckSubscriptionLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "CheckSubscriptionLambdaVersionmffrhdaFkCBr9X9QXlEI36cvmynZcLywq32GJlTqiM"
+      },
+      "Export": {
+        "Name": "sls-cityexpress-subscriptions-dev-CheckSubscriptionLambdaFunctionQualifiedArn"
+      }
+    },
+    "ExecuteDeliveryLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "ExecuteDeliveryLambdaVersioneFfJu0GeHuCzu7U4FsYu03liOUghn83IxBzaFvw2ro"
+      },
+      "Export": {
+        "Name": "sls-cityexpress-subscriptions-dev-ExecuteDeliveryLambdaFunctionQualifiedArn"
+      }
+    },
+    "CityexpressDashsubscriptionDashdeliveryArn": {
+      "Description": "Current StateMachine Arn",
+      "Value": {
+        "Ref": "CityexpressDashsubscriptionDashdelivery"
+      },
+      "Export": {
+        "Name": "sls-cityexpress-subscriptions-dev-CityexpressDashsubscriptionDashdeliveryArn"
+      }
+    }
+  }
+}

@@ -141,7 +141,7 @@ def start_consumer():
                             enviar_reporte_auditor(ch, resultado['package_id'], "expired")
                         
                         elif accion == "pending_routing":
-                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get("destinationId", "").upper()}. Guardado como pending-routing.")
+                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get('destinationId', '').upper()}. Guardado como pending-routing.")
 
                         # Reenvio a otra ciudad
                         elif accion == "forward":
@@ -279,10 +279,10 @@ def start_consumer():
                         publicar_mensaje(
                             channel=ch,
                             exchange='fulfillment.x',
-                            routing_key=f"city.{ciudad_origen.lower()}",
+                            routing_key=f"city.{ciudad_solicitante.lower()}",
                             message_dict=respuesta_costos
                         )
-                        print(f"[*] Tabla de distancias ha sido enviada a {ciudad_origen}.")
+                        print(f"[*] Tabla de distancias ha sido enviada a {ciudad_solicitante}.")
                     finally:
                         db.close()
                 

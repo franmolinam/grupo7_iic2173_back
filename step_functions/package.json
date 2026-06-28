@@ -1,0 +1,10 @@
+{
+  "name": "cityexpress-subscriptions",
+  "version": "1.0.0",
+  "description": "Step Functions para entregas con suscripción periódica",
+  "devDependencies": {
+    "serverless": "^3.0.0",
+"serverless-python-requirements": "^6.0.0",
+    "serverless-step-functions": "^3.0.0"
+  }
+}

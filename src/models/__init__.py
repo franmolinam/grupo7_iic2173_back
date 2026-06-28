@@ -6,3 +6,4 @@ from src.models.shipment_request import ShipmentRequest
 from src.models.payment import Payment
 from src.models.routing_jobs import RoutingJob
 from src.models.branch_config import BranchConfig
+from src.models.subscription import Subscription, SubscriptionPackage

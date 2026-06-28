@@ -11,7 +11,7 @@ router = APIRouter(prefix="/connections", tags=["connections"])
 @router.get("")
 def list_connections(db: Session = Depends(get_db)):
     # listar todas las conexiones entre ciudades  (deberían ser las 16 q hay)
-    connections = get_all_connections(db)
+    connections = get_all_connections(db, source_code="LSN")
     return {
         "total": len(connections),
         "connections": [

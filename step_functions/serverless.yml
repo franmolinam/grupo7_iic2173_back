@@ -1,0 +1,95 @@
+service: cityexpress-subscriptions
+
+useDotenv: true
+
+plugins:
+  - serverless-python-requirements
+  - serverless-step-functions
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+
+provider:
+  name: aws
+  runtime: python3.10
+  region: us-east-2
+  timeout: 30
+  environment:
+    DATABASE_URL: ${env:DATABASE_URL_SERVERLESS}
+    RABBITMQ_HOST: ${env:RABBITMQ_HOST}
+    RABBITMQ_PORT: ${env:RABBITMQ_PORT}
+    RABBITMQ_USER: ${env:RABBITMQ_USER}
+    RABBITMQ_PASSWORD: ${env:RABBITMQ_PASSWORD}
+    CODIGO_CIUDAD: ${env:CODIGO_CIUDAD}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - states:StartExecution
+        - states:DescribeExecution
+        - states:StopExecution
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: "*"
+
+functions:
+  checkSubscription:
+    handler: handler.check_subscription
+    description: "Verifica si la suscripcion debe continuar segun budget y cantidad"
+
+  executeDelivery:
+    handler: handler.execute_delivery
+    description: "Crea y envia un paquete de suscripcion via RabbitMQ"
+
+stepFunctions:
+  stateMachines:
+    subscriptionDelivery:
+      name: cityexpress-subscription-delivery
+      definition:
+        Comment: "CityExpress - State machine para entregas con suscripcion periodica"
+        StartAt: CheckSubscription
+        States:
+
+          CheckSubscription:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [CheckSubscriptionLambdaFunction, Arn]
+            Next: ShouldContinueDelivery
+            ResultPath: "$"
+            Retry:
+              - ErrorEquals:
+                  - States.ALL
+                IntervalSeconds: 5
+                MaxAttempts: 3
+                BackoffRate: 2
+
+          ShouldContinueDelivery:
+            Type: Choice
+            Choices:
+              - Variable: "$.should_continue"
+                BooleanEquals: true
+                Next: ExecuteDelivery
+            Default: SubscriptionComplete
+
+          ExecuteDelivery:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [ExecuteDeliveryLambdaFunction, Arn]
+            Next: WaitForNextDelivery
+            ResultPath: "$"
+            Retry:
+              - ErrorEquals:
+                  - States.ALL
+                IntervalSeconds: 5
+                MaxAttempts: 3
+                BackoffRate: 2
+
+          WaitForNextDelivery:
+            Type: Wait
+            SecondsPath: "$.periodicity_seconds"
+            Next: CheckSubscription
+
+          SubscriptionComplete:
+            Type: Succeed
