@@ -1,4 +1,3 @@
-import pika
 import json
 from src.rabbitmq.utils import fibonacci_retry
 

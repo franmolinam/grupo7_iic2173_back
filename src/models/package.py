@@ -1,6 +1,5 @@
 from sqlalchemy import Column, ForeignKey, String, Integer, DateTime, Boolean, JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime, timezone
 from src.database import Base
 
 # modelo de paquete

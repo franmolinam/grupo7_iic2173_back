@@ -166,7 +166,7 @@ def start_consumer():
                                 print(f"[*] Notificación expired enviada a ciudad origen: {origen}")
                         
                         elif accion == "pending_routing":
-                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get("destinationId", "").upper()}. Guardado como pending-routing.")
+                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get('destinationId', '').upper()}. Guardado como pending-routing.")
 
                         # Reenvio a otra ciudad
                         elif accion == "forward":
@@ -222,7 +222,7 @@ def start_consumer():
                         else:
                             distancias_formateadas = mensaje.get("data", {}).get("distances", {})
                         
-                        if distancias_formateadas and origen_real!="Desconocido":
+                        if distancias_formateadas and origen_real != "Desconocido":
                             handle_distance_table(db, CODIGO_CIUDAD, distancias_formateadas)
                             print("[*] Tabla de distancias actualizada exitosamente en la base de datos")
                             
@@ -261,9 +261,9 @@ def start_consumer():
                         ciudad_solicitante = mensaje.get("source") or mensaje.get("cityId") or "Desconocido"
 
                         if ciudad_solicitante == "Desconocido":
-                             print("[!] Advertencia: Solicitud de tabla sin 'source' ni 'cityId'. Ignorando.")
-                             ch.basic_ack(delivery_tag=method.delivery_tag)
-                             return
+                            print("[!] Advertencia: Solicitud de tabla sin 'source' ni 'cityId'. Ignorando.")
+                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                            return
 
                         print(f"[*] Solicitud de tabla recibida de: {ciudad_solicitante}. Preparando respuesta...")
 
@@ -314,7 +314,7 @@ def start_consumer():
                 # Ack del broker
                 # Una vez procesado, se debe borrar de la cola
                 ch.basic_ack(delivery_tag=method.delivery_tag)
-                print(f"[*] Mensaje procesado y retirado de la cola.")
+                print("[*] Mensaje procesado y retirado de la cola.")
 
             except json.JSONDecodeError:
                 # Caso en que el mensaje no es un JSON valido
@@ -359,6 +359,7 @@ def start_consumer():
     except Exception as e:
         print(f"[!] Error al conectar con RabbitMQ: {repr(e)}")
         traceback.print_exc()
+
 
 # Para probar este script directamente de forma local
 if __name__ == "__main__":
