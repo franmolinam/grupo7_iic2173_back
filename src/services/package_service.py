@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from typing import Optional
 import uuid
 import os
-import json
 import pika
 import ssl
 
