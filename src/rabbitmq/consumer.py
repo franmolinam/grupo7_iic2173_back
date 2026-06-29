@@ -5,7 +5,7 @@ import ssl
 import json
 import uuid
 from datetime import datetime, timezone 
-from src.rabbitmq.publisher import publicar_mensaje
+from src.rabbitmq.publisher import PRIORITY_MAP, publicar_mensaje
 from src.rabbitmq.auditor import enviar_reporte_auditor
 from dotenv import load_dotenv
 from src.handlers.package_handler import (
@@ -58,6 +58,19 @@ def start_consumer():
         conexion = pika.BlockingConnection(parameters)
         channel = conexion.channel()
         nombre_cola = f"city.{CODIGO_CIUDAD}.q"
+
+        # PRIORITY: intentar declarar cola con soporte de prioridades
+        try:
+            channel.queue_declare(
+                queue=nombre_cola,
+                durable=True,
+                arguments={"x-max-priority": 3},
+            )
+            print(f"[*] Cola {nombre_cola} declarada con x-max-priority=3")
+        except Exception:
+            print(f"[*] Cola {nombre_cola} ya existe, omitiendo redeclaración")
+            conexion = pika.BlockingConnection(parameters)
+            channel = conexion.channel()
 
         # Aqui se define que hacer cuando llega un mensaje
         def callback(ch, method, properties, body):
@@ -185,13 +198,18 @@ def start_consumer():
                                 "cityId": CODIGO_CIUDAD, # El origen ahora es la propia ciudad
                                 "body": cuerpo_modificado
                             }
+
+                            # prioridad del paquete
+                            priority_class = cuerpo.get("priorityClass", "medium")
+                            priority = PRIORITY_MAP.get(priority_class, 2)
                             
                             # Paquete a la ciudad destino
                             publicar_mensaje(
                                 channel=ch,
                                 exchange='fulfillment.x',
                                 routing_key=f"city.{siguiente_ciudad}",
-                                message_dict=paquete_reenvio
+                                message_dict=paquete_reenvio,
+                                priority=priority,
                             )
                             
                             # Aviso a la DB que el reenvio fue exitoso
