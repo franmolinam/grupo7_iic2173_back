@@ -27,6 +27,14 @@ class ShipmentRequestCreate(BaseModel):
     deliver_not_before: Optional[datetime] = None
     meta_content: Optional[str] = None
     insured: bool = False
+    priority_class: str = "medium"
+
+    @field_validator("priority_class")
+    @classmethod
+    def priority_class_valido(cls, v):
+        if v not in ("low", "medium", "high"):
+            raise ValueError("priority_class debe ser 'low', 'medium' o 'high'")
+        return v
 
     @field_validator("criteria")
     @classmethod
@@ -90,6 +98,7 @@ def create_shipment(
         full_path=quotation["full_path"],
         final_price=quotation["final_price"],
         status="quoted",
+        priority_class=body.priority_class,
     )
 
     db.add(shipment)
@@ -109,6 +118,7 @@ def create_shipment(
         "final_price": shipment.final_price,
         "is_insured": shipment.is_insured,
         "insurance_premium": quotation.get("insurance_premium", 0),
+        "priority_class": shipment.priority_class,
         "created_at": shipment.created_at,
     }
 

@@ -3,13 +3,13 @@ from datetime import datetime, timezone
 from typing import Optional
 import uuid
 import os
-import json
 import pika
 import ssl
 
 from src.models.package import Package
 from src.models.package_event import PackageEvent
 from src.models.city_connection import CityConnection
+from src.rabbitmq.publisher import PRIORITY_MAP, publicar_mensaje
 
 CODIGO_CIUDAD = os.getenv("CODIGO_CIUDAD", "LSN").upper()
 
@@ -82,6 +82,7 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
         "metaContent": {"insured": is_insured} if is_insured else pkg.meta_content,
         "constraints": {"criteria": shipment.criteria},
         "payment": pkg.payment,
+        "priorityClass": shipment.priority_class or "medium",
     }
     mensaje = {
         "idpk": str(uuid.uuid4()),
@@ -94,14 +95,16 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
 
     try:
         conexion, channel = _get_rabbitmq_channel()
-        channel.basic_publish(
+        priority = PRIORITY_MAP.get(shipment.priority_class or "medium", 2)
+        publicar_mensaje(
+            channel=channel,
             exchange="fulfillment.x",
             routing_key=f"city.{next_hop.lower()}",
-            body=json.dumps(mensaje),
-            mandatory=True,
+            message_dict=mensaje,
+            priority=priority,
         )
         conexion.close()
-        print(f"[*] Paquete {pkg.id} enviado a {next_hop} via MQTT")
+        print(f"[*] Paquete {pkg.id} enviado a {next_hop} con prioridad {priority}")
     except Exception as e:
         print(f"[!] Error al publicar paquete {pkg.id} en MQTT: {e}")
         # El paquete queda en BD; el estado refleja que está "forwarded" pero falló el envío
@@ -118,7 +121,6 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
     db.commit()
 
     return pkg
-
 
 # Funciones de Package
 

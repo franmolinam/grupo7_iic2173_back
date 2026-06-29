@@ -7,6 +7,11 @@ MAX_PRICE = 100_000
 
 CODIGO_CIUDAD = os.getenv("CODIGO_CIUDAD", "LSN").upper()
 
+PRIORITY_PRICE_FACTOR = {
+    "low": 0.5,
+    "medium": 1.0,
+    "high": 2.5,
+}
 
 def validate_dimensions(height: float, width: float, depth: float) -> None:
     total = height + width + depth
@@ -16,14 +21,21 @@ def validate_dimensions(height: float, width: float, depth: float) -> None:
             f"Total: {total:.1f} cm"
         )
 
-
-def calculate_price(h: float, w: float, d: float, route_metric_cost: float, fprice: float, insured: bool = False) -> int:
-    raw = 0.01 * (h + w + d) * route_metric_cost * fprice
+def calculate_price(
+    h: float,
+    w: float,
+    d: float,
+    route_metric_cost: float,
+    fprice: float,
+    insured: bool = False,
+    priority_class: str = "medium",
+) -> int:
+    priority_factor = PRIORITY_PRICE_FACTOR.get(priority_class, 1.0)
+    raw = 0.01 * (h + w + d) * route_metric_cost * fprice * priority_factor
     base = int(max(MIN_PRICE, min(MAX_PRICE, raw)))
     if insured:
         base = int(base * 1.05)
     return base
-
 
 def get_quotation(
     destination_id: str,
@@ -34,6 +46,7 @@ def get_quotation(
     max_hops: int,
     fprice: float,
     insured: bool = False,
+    priority_class: str = "medium",
 ) -> dict:
     # 1. Validar dimensiones
     validate_dimensions(height, width, depth)
@@ -59,7 +72,7 @@ def get_quotation(
 
     # 5. Calcular precio
     route_metric_cost = route["routeMetricCost"]
-    final_price = calculate_price(height, width, depth, route_metric_cost, fprice, insured)
+    final_price = calculate_price(height, width, depth, route_metric_cost, fprice, insured, priority_class)
     insurance_premium = int(final_price - int(final_price / 1.05)) if insured else 0
 
     # El siguiente salto es el segundo elemento del array hops
@@ -74,4 +87,5 @@ def get_quotation(
         "fprice": fprice,
         "final_price": final_price,
         "insurance_premium": insurance_premium,
+        "priority_class": priority_class,
     }

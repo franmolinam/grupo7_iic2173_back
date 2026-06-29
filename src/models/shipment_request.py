@@ -25,6 +25,7 @@ class ShipmentRequest(Base):
     deliver_not_before = Column(DateTime, nullable=True)
     meta_content = Column(String, nullable=True)
     is_insured = Column(Boolean, nullable=False, default=False)
+    priority_class = Column(String, nullable=True)  # "low", "medium", "high"
 
     # aplicación debe debe calcular y mostrar una cotización
     # incluyendo criterio usado, routeMetricCost, cantidad de saltos, siguiente salto o ruta, f_price y precio final

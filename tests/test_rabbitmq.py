@@ -1,3 +1,4 @@
+import pika
 import pytest
 from unittest.mock import MagicMock, patch, call
 import json
@@ -59,6 +60,7 @@ def test_publicar_mensaje_success():
         exchange="fulfillment.x",
         routing_key="central",
         body=json.dumps(mensaje),
+        properties=pika.BasicProperties(delivery_mode=2, priority=1),
         mandatory=True
     )
 
