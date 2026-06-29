@@ -18,6 +18,7 @@ from src.handlers.package_handler import (
 
 from src.database import SessionLocal
 from src.services.package_service import get_package_by_id
+from src.sse import emit_event
 
 # Cargar variables del .env
 load_dotenv()
@@ -148,6 +149,11 @@ def start_consumer():
                         if accion == "deliver":
                             print(f"[*] Paquete {resultado['package_id']} es para LSN. Queda pendiente de entrega local.")
                             enviar_reporte_auditor(ch, resultado['package_id'], "received")
+                            # Emitir evento de paquete recibido
+                            emit_event("package_received", {
+                                "package_id": resultado['package_id'],
+                                "from_city": ciudad_origen,
+                            })
                         
                         elif accion == "expire":
                             print(f"[*] Paquete {resultado['package_id']} expiró (maxHops=0).")
@@ -177,6 +183,12 @@ def start_consumer():
                                     message_dict=notificacion,
                                 )
                                 print(f"[*] Notificación expired enviada a ciudad origen: {origen}")
+                                # Emitir evento de paquete expirado
+                                emit_event("insurance_charged", {
+                                    "package_id": resultado['package_id'],
+                                    "origin": origen,
+                                    "reason": "Paquete asegurado expirado",
+                                })
                         
                         elif accion == "pending_routing":
                             print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get('destinationId', '').upper()}. Guardado como pending-routing.")
@@ -214,6 +226,12 @@ def start_consumer():
                             
                             # Aviso a la DB que el reenvio fue exitoso
                             handle_package_forwarded(db, resultado["package_id"], siguiente_ciudad)
+                            # Emitir evento de paquete reenviado
+                            emit_event("package_redirected", {
+                                "package_id": resultado['package_id'],
+                                "to_city": siguiente_ciudad,
+                                "priority_class": cuerpo.get("priorityClass", "medium"),
+                            })
                             enviar_reporte_auditor(ch, resultado['package_id'], "transit", siguiente_ciudad)
 
                     finally:

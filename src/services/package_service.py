@@ -10,6 +10,7 @@ from src.models.package import Package
 from src.models.package_event import PackageEvent
 from src.models.city_connection import CityConnection
 from src.rabbitmq.publisher import PRIORITY_MAP, publicar_mensaje
+from src.sse import emit_event
 
 CODIGO_CIUDAD = os.getenv("CODIGO_CIUDAD", "LSN").upper()
 
@@ -68,6 +69,14 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
     )
     db.add(pkg)
     db.commit()
+    # evento creación de paquete
+    emit_event("package_created", {
+        "package_id": pkg.id,
+        "origin_id": pkg.origin_id,
+        "destination_id": pkg.destination_id,
+        "priority_class": pkg.priority_class,
+        "is_insured": pkg.is_insured,
+    })
     db.refresh(pkg)
 
     # Publicar al siguiente salto via MQTT
