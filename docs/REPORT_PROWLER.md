@@ -18,15 +18,15 @@
 ![Evidencia 1](./images/new_iam_parameters.png)
 
 
-## 2. Vulnerabilidad 2: Acceso público a nivel de cuenta en S3 no bloqueado
-- **Nivel de Severidad:** 🔴 High
-- **ID del Error:** s3_account_level_public_access_blocks
-- **Servicio de AWS:** Amazon S3
-- **Descripción del problema:** La cuenta de AWS no tiene activada la restricción global para bloquear el acceso público a los buckets de S3, lo que podría derivar en exposición accidental de datos.
-- **Solución aplicada:** Se ingresó a la configuración ``Block Public Access settings for this account`` en la consola de S3 y se activó la opción ``Block all public access``.
+## 2. Vulnerabilidad 2: Falta de cifrado por defecto en volúmenes EBS
+- **Nivel de Severidad:** 🟡 Medium
+- **ID del Error:** ec2_ebs_default_encryption
+- **Servicio de AWS:** Amazon EC2
+- **Descripción del problema:** La cuenta de AWS no tiene habilitado el cifrado por defecto para los volúmenes de almacenamiento (EBS), lo que podría permitir la creación de nuevos discos sin cifrado, exponiendo los datos en reposo.
+- **Solución aplicada:** Se ingresó al panel de control de EC2, en la sección de atributos de la cuenta, y se activó la opción de habilitar el cifrado de EBS por defecto.
 
 ### Evidencia de la corrección
-![Evidencia 2](./images/block_public_access.png)
+![Evidencia 2](./images/ebs_encryption.png)
 
 
 ## 3. Vulnerabilidad 3: Falta de expiracion obligatoria de contraseñas
@@ -53,9 +53,9 @@ El archivo HTML original generado por Prowler se encuentra adjunto en este repos
 
 ## Vulnerabilidad 2
 ### Log Inicial
-![Log Inicial - Vulnerabilidad 2](./images/prowler_error_s3_account_level_public_access_blocks.png)
+![Log Inicial - Vulnerabilidad 2](./images/prowler_error_ec2_ebs_default_encryption.png)
 ### Log Final
-![Log Final - Vulnerabilidad 2](./images/prowler_pass_s3_account_level_public_access_blocks.png)
+![Log Final - Vulnerabilidad 2](./images/prowler_pass_ec2_ebs_default_encryption.png)
 
 
 ## Vulnerabilidad 3
