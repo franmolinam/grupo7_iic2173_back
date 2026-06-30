@@ -1,7 +1,8 @@
 import asyncio
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from src.sse import event_stream
+from pydantic import BaseModel
+from src.sse import event_stream, emit_event
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -17,3 +18,14 @@ async def sse_feed():
             "X-Accel-Buffering": "no",
         },
     )
+
+
+class EmitPayload(BaseModel):
+    event: str
+    data: dict
+
+
+@router.post("/emit")
+async def internal_emit(payload: EmitPayload):
+    emit_event(payload.event, payload.data)
+    return {"ok": True}

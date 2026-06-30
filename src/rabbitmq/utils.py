@@ -24,7 +24,7 @@ def fibonacci_retry(max_retries=6): # Se eligio un maximo de 6 reintentos para e
                         raise e # Si ya no quedan reintentos se lanza el error
                     
                     print(f"[!] Error en peticion al broker: {e}.")
-                    print(f"[*] Reintentando en {a} segundos (Intento {retries}/{max_retries-1})...")
+                    print(f"[*] Reintentando en {a} segundos (Intento {retries} / {max_retries - 1})...")
                     
                     time.sleep(a)
                     
