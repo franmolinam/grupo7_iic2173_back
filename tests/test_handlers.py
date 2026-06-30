@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch, MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone, timedelta
@@ -76,7 +77,13 @@ def test_receive_package_for_own_city(db):
 def test_receive_package_for_other_city(db):
     seed_connection(db, destination_code="HGW", enabled=True)
     body = make_package_body(destinationId="HGW", maxHops=3)
-    result = handle_package_received(db, body, received_from="COR")
+    mock_post = MagicMock()
+    mock_post.json.return_value = {"jobId": "test-job-id"}
+    mock_get = MagicMock()
+    mock_get.json.return_value = {"status": "done", "hops": ["LSN", "HGW"]}
+    with patch("src.handlers.package_handler.requests.post", return_value=mock_post), \
+         patch("src.handlers.package_handler.requests.get", return_value=mock_get):
+        result = handle_package_received(db, body, received_from="COR")
     assert result["action"] == "forward"
     assert result["max_hops_remaining"] == 2
 
@@ -87,10 +94,16 @@ def test_receive_package_max_hops_zero(db):
     assert result["action"] == "expire"
 
 # test para verificar si el paquete tiene maxHops=1 y no es para LSN → forward con 0 hops restantes
-def test_receive_package_max_hops_one(db): 
+def test_receive_package_max_hops_one(db):
     seed_connection(db, destination_code="HGW", enabled=True)
     body = make_package_body(destinationId="HGW", maxHops=1)
-    result = handle_package_received(db, body, received_from="COR")
+    mock_post = MagicMock()
+    mock_post.json.return_value = {"jobId": "test-job-id"}
+    mock_get = MagicMock()
+    mock_get.json.return_value = {"status": "done", "hops": ["LSN", "HGW"]}
+    with patch("src.handlers.package_handler.requests.post", return_value=mock_post), \
+         patch("src.handlers.package_handler.requests.get", return_value=mock_get):
+        result = handle_package_received(db, body, received_from="COR")
     assert result["action"] == "forward"
     assert result["max_hops_remaining"] == 0
 
@@ -121,7 +134,13 @@ def test_receive_package_for_lsn_sets_pending_delivery(db):
 def test_receive_package_forward_sets_in_transit(db):
     seed_connection(db, destination_code="HGW", enabled=True)
     body = make_package_body(destinationId="HGW", maxHops=3)
-    result = handle_package_received(db, body, received_from="COR")
+    mock_post = MagicMock()
+    mock_post.json.return_value = {"jobId": "test-job-id"}
+    mock_get = MagicMock()
+    mock_get.json.return_value = {"status": "done", "hops": ["LSN", "HGW"]}
+    with patch("src.handlers.package_handler.requests.post", return_value=mock_post), \
+         patch("src.handlers.package_handler.requests.get", return_value=mock_get):
+        result = handle_package_received(db, body, received_from="COR")
     pkg = db.query(Package).filter_by(id=result["package_id"]).first()
     assert pkg.status == "in_transit"
 
