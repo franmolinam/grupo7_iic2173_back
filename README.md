@@ -101,7 +101,6 @@ Documentación
 - RDOC01 – Actualización del diagrama UML de componentes incorporando los cambios de esta entrega, con detalles y explicaciones del sistema.
 - RDOC02 – Documentación de los endpoints de la API expuestos al frontend mediante la generación de un archivo OpenAPI.
 
-
 ## Consideraciones Generales
 - El proyecto fue desarrollado utilizando Docker desde el inicio.
 - Se utilizó solo un .env para el manejo de configuraciones sensibles.
@@ -123,3 +122,4 @@ Documentación
 12. [NewRelic - Introduction to synthetic monitors](https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/using-monitors/intro-synthetic-monitoring/)
 13. [Prowler Cloud CLI - Installation](https://docs.prowler.com/getting-started/installation/prowler-cli#pip)
 14. [AWS CDK - Documentation](https://docs.aws.amazon.com/es_es/cdk/?id=docs_gateway)
+
