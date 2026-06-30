@@ -77,3 +77,12 @@ Contexto: Buscaba identificar que estaba funcionando en consumidor localmente pa
 ### 17. Configuración de secretos y variables en GitHub Actions
 **Prompt:** "Ya tengo estructurado el workflow de CI/CD, pero no quiero dejar expuestas mis credenciales de AWS en el código. ¿Como configuro las variables en github action? [imagen]" 
 **Respuesta:** Se guio en el proceso de configuración de *Repository Secrets* desde la interfaz de GitHub. Se recomendó centralizar estos valores mediante un bloque de entorno global (`env`) en la raíz del archivo YAML, invocando de forma segura secretos como `AWS_REGION`, `AWS_ACCOUNT_ID` y `ECR_REPOSITORY` para proteger la infraestructura sin comprometer la mantenibilidad.
+
+### 18. Ejecución y remediación con Prowler Cloud CLI 
+**Prompt:** "Necesito configurar y correr Prowler Cloud CLI en mi cuenta de AWS. ¿Cómo puedo ejecutar la herramienta, interpretar el reporte de seguridad generado y solucionar al menos 3 errores de prioridad medium o superior que se exigen para la entrega?"
+**Respuesta:** Se explicaron los comandos necesarios para instalar la herramienta y autenticarla utilizando las credenciales de AWS. Posteriormente, se detalló cómo ejecutar el análisis para detectar las vulnerabilidades y se entregaron pautas sobre cómo leer el reporte, identificar los problemas de prioridad media o superior, aplicar las correcciones pertinentes en la infraestructura y guardar la evidencia de los 3 errores reparados.
+
+### 19. Aclaración sobre el estado de enlace del monitor 
+**Prompt:** "El tema es que lo cree desde el panel de el monitor, asi que no se porque no esta enlazado [imagen]"
+**Respuesta:** La IA explicó que el indicador gris del monitor se debe al comportamiento de *New Relic* al generar alertas basadas en consultas de datos (NRQL) a través del modo guiado, lo que ocasiona una demora o desconexión gráfica en la interfaz local a pesar de haberse iniciado el proceso desde allí, confirmando a su vez que esta situación puramente visual no afecta la funcionalidad operativa de la alerta ni el cumplimiento del requerimiento evaluado.
+

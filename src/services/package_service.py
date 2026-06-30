@@ -3,13 +3,14 @@ from datetime import datetime, timezone
 from typing import Optional
 import uuid
 import os
-import json
 import pika
 import ssl
 
 from src.models.package import Package
 from src.models.package_event import PackageEvent
 from src.models.city_connection import CityConnection
+from src.rabbitmq.publisher import PRIORITY_MAP, publicar_mensaje
+from src.sse import emit_event
 
 CODIGO_CIUDAD = os.getenv("CODIGO_CIUDAD", "LSN").upper()
 
@@ -33,7 +34,6 @@ def _get_rabbitmq_channel():
 
 # Crea el Package en BD y lo publica al siguiente salto via MQTT. Idempotente: si ya existe paquete para este shipment, lo retorna sin re-enviar.
 def create_and_send_package(db: Session, shipment, payment) -> Package:
-    
     existing = db.query(Package).filter_by(shipment_request_id=shipment.id).first()
     if existing:
         return existing
@@ -45,6 +45,10 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
     if hasattr(deliver_not_before, 'tzinfo') and deliver_not_before.tzinfo is None:
         deliver_not_before = deliver_not_before.replace(tzinfo=timezone.utc)
 
+    # calcular prima por seguridad
+    is_insured = bool(getattr(shipment, "is_insured", False))
+    insurance_premium = int(payment.amount * 0.05) if is_insured else None
+
     pkg = Package(
         id=pkg_id,
         origin_id=shipment.origin_id,
@@ -55,6 +59,8 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
         meta_content=shipment.meta_content,
         constraints={"criteria": shipment.criteria},
         payment=payment.amount,
+        is_insured=is_insured,
+        insurance_premium=insurance_premium,
         status="forwarded",
         last_action="forwarded",
         last_processed_at=now,
@@ -63,6 +69,14 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
     )
     db.add(pkg)
     db.commit()
+    # evento creación de paquete
+    emit_event("package_created", {
+        "package_id": pkg.id,
+        "origin_id": pkg.origin_id,
+        "destination_id": pkg.destination_id,
+        "priority_class": pkg.priority_class,
+        "is_insured": pkg.is_insured,
+    })
     db.refresh(pkg)
 
     # Publicar al siguiente salto via MQTT
@@ -74,9 +88,10 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
         "maxHops": pkg.max_hops - 1,  # descontamos el salto inicial
         "createdAt": now.isoformat(),
         "deliverNotBefore": deliver_not_before.isoformat(),
-        "metaContent": pkg.meta_content,
+        "metaContent": {"insured": is_insured} if is_insured else pkg.meta_content,
         "constraints": {"criteria": shipment.criteria},
         "payment": pkg.payment,
+        "priorityClass": shipment.priority_class or "medium",
     }
     mensaje = {
         "idpk": str(uuid.uuid4()),
@@ -89,14 +104,16 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
 
     try:
         conexion, channel = _get_rabbitmq_channel()
-        channel.basic_publish(
+        priority = PRIORITY_MAP.get(shipment.priority_class or "medium", 2)
+        publicar_mensaje(
+            channel=channel,
             exchange="fulfillment.x",
             routing_key=f"city.{next_hop.lower()}",
-            body=json.dumps(mensaje),
-            mandatory=True,
+            message_dict=mensaje,
+            priority=priority,
         )
         conexion.close()
-        print(f"[*] Paquete {pkg.id} enviado a {next_hop} via MQTT")
+        print(f"[*] Paquete {pkg.id} enviado a {next_hop} con prioridad {priority}")
     except Exception as e:
         print(f"[!] Error al publicar paquete {pkg.id} en MQTT: {e}")
         # El paquete queda en BD; el estado refleja que está "forwarded" pero falló el envío
@@ -113,7 +130,6 @@ def create_and_send_package(db: Session, shipment, payment) -> Package:
     db.commit()
 
     return pkg
-
 
 # Funciones de Package
 
@@ -139,6 +155,21 @@ def save_package(db: Session, package_data: dict) -> Package:
     existing = get_package_by_id(db, package_data["id"])
     if existing:
         return existing
+    
+    # leer insured desde metaContent
+    raw_meta = package_data.get("metaContent")
+    meta_dict = {}
+    if isinstance(raw_meta, dict):
+        meta_dict = raw_meta
+    elif isinstance(raw_meta, str):
+        try:
+            import json as _json
+            meta_dict = _json.loads(raw_meta)
+        except Exception:
+            pass
+    is_insured = bool(meta_dict.get("insured", False))
+    base_payment = package_data.get("payment") or 0
+    insurance_premium = int(base_payment * 0.05) if is_insured else None
 
     # todos los campos que vienen en el paquete, más los campos de seguimiento que cree
     pkg = Package(
@@ -154,6 +185,8 @@ def save_package(db: Session, package_data: dict) -> Package:
         payment=package_data.get("payment"),
         constraints=package_data.get("constraints", {}),
         delivery_strategy=package_data.get("deliveryStrategy"),
+        is_insured=is_insured,
+        insurance_premium=insurance_premium,
         status="received",
         last_action="received",
         last_processed_at=datetime.now(timezone.utc),
@@ -224,8 +257,11 @@ def deliver_package(db: Session, package_id: str) -> tuple[Optional[Package], st
 # Funciones para city connections
 
 # Obtener todas las conexiones de ciudades para el RF de connections
-def get_all_connections(db: Session):
-    return db.query(CityConnection).all()
+def get_all_connections(db: Session, source_code: str = None):
+    query = db.query(CityConnection)
+    if source_code:
+        query = query.filter(CityConnection.source_code == source_code)
+    return query.all()
 
 # Actualizar o insertar las conexiones de ciudades a partir de la tabla de distancias del broker
 def upsert_connections(db: Session, source_code: str,distances: dict):

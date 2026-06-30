@@ -5,7 +5,7 @@ import ssl
 import json
 import uuid
 from datetime import datetime, timezone 
-from src.rabbitmq.publisher import publicar_mensaje
+from src.rabbitmq.publisher import PRIORITY_MAP, publicar_mensaje
 from src.rabbitmq.auditor import enviar_reporte_auditor
 from dotenv import load_dotenv
 from src.handlers.package_handler import (
@@ -16,10 +16,26 @@ from src.handlers.package_handler import (
     get_local_distance_table
 )
 
+import requests as http_requests
+
 from src.database import SessionLocal
+from src.services.package_service import get_package_by_id
 
 # Cargar variables del .env
 load_dotenv()
+
+API_INTERNAL_URL = os.getenv("API_INTERNAL_URL", "http://api:8000")
+
+def emit_to_api(event_type: str, payload: dict):
+    try:
+        http_requests.post(
+            f"{API_INTERNAL_URL}/events/emit",
+            json={"event": event_type, "data": payload},
+            timeout=2,
+        )
+    except Exception:
+        pass
+
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5671))
@@ -57,6 +73,19 @@ def start_consumer():
         conexion = pika.BlockingConnection(parameters)
         channel = conexion.channel()
         nombre_cola = f"city.{CODIGO_CIUDAD}.q"
+
+        # PRIORITY: intentar declarar cola con soporte de prioridades
+        try:
+            channel.queue_declare(
+                queue=nombre_cola,
+                durable=True,
+                arguments={"x-max-priority": 3},
+            )
+            print(f"[*] Cola {nombre_cola} declarada con x-max-priority=3")
+        except Exception:
+            print(f"[*] Cola {nombre_cola} ya existe, omitiendo redeclaración")
+            conexion = pika.BlockingConnection(parameters)
+            channel = conexion.channel()
 
         # Aqui se define que hacer cuando llega un mensaje
         def callback(ch, method, properties, body):
@@ -134,14 +163,49 @@ def start_consumer():
                         if accion == "deliver":
                             print(f"[*] Paquete {resultado['package_id']} es para LSN. Queda pendiente de entrega local.")
                             enviar_reporte_auditor(ch, resultado['package_id'], "received")
+                            # Emitir evento de paquete recibido
+                            emit_to_api("package_received", {
+                                "package_id": resultado['package_id'],
+                                "from_city": ciudad_origen,
+                            })
                         
                         elif accion == "expire":
                             print(f"[*] Paquete {resultado['package_id']} expiró (maxHops=0).")
+                            pkg_expirado = get_package_by_id(db, resultado['package_id'])
                             handle_package_expired(db, resultado['package_id'])
                             enviar_reporte_auditor(ch, resultado['package_id'], "expired")
+
+                            # Notificar a ciudad origen si el paquete era asegurado
+                            if pkg_expirado and pkg_expirado.is_insured:
+                                origen = pkg_expirado.origin_id.lower()
+                                notificacion = {
+                                    "idpk": str(uuid.uuid4()),
+                                    "msgId": str(uuid.uuid4()),
+                                    "type": "package-status",
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "cityId": CODIGO_CIUDAD,
+                                    "data": {
+                                        "pkgId": resultado['package_id'],
+                                        "status": "expired",
+                                        "reason": "Paquete asegurado no pudo ser entregado: maxHops agotados",
+                                    },
+                                }
+                                publicar_mensaje(
+                                    channel=ch,
+                                    exchange='fulfillment.x',
+                                    routing_key=f"city.{origen}",
+                                    message_dict=notificacion,
+                                )
+                                print(f"[*] Notificación expired enviada a ciudad origen: {origen}")
+                                # Emitir evento de paquete expirado
+                                emit_to_api("insurance_charged", {
+                                    "package_id": resultado['package_id'],
+                                    "origin": origen,
+                                    "reason": "Paquete asegurado expirado",
+                                })
                         
                         elif accion == "pending_routing":
-                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get("destinationId", "").upper()}. Guardado como pending-routing.")
+                            print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get('destinationId', '').upper()}. Guardado como pending-routing.")
 
                         # Reenvio a otra ciudad
                         elif accion == "forward":
@@ -160,17 +224,28 @@ def start_consumer():
                                 "cityId": CODIGO_CIUDAD, # El origen ahora es la propia ciudad
                                 "body": cuerpo_modificado
                             }
+
+                            # prioridad del paquete
+                            priority_class = cuerpo.get("priorityClass", "medium")
+                            priority = PRIORITY_MAP.get(priority_class, 2)
                             
                             # Paquete a la ciudad destino
                             publicar_mensaje(
                                 channel=ch,
                                 exchange='fulfillment.x',
                                 routing_key=f"city.{siguiente_ciudad}",
-                                message_dict=paquete_reenvio
+                                message_dict=paquete_reenvio,
+                                priority=priority,
                             )
                             
                             # Aviso a la DB que el reenvio fue exitoso
                             handle_package_forwarded(db, resultado["package_id"], siguiente_ciudad)
+                            # Emitir evento de paquete reenviado
+                            emit_to_api("package_redirected", {
+                                "package_id": resultado['package_id'],
+                                "to_city": siguiente_ciudad,
+                                "priority_class": cuerpo.get("priorityClass", "medium"),
+                            })
                             enviar_reporte_auditor(ch, resultado['package_id'], "transit", siguiente_ciudad)
 
                     finally:
@@ -197,7 +272,7 @@ def start_consumer():
                         else:
                             distancias_formateadas = mensaje.get("data", {}).get("distances", {})
                         
-                        if distancias_formateadas and origen_real!="Desconocido":
+                        if distancias_formateadas and origen_real != "Desconocido":
                             handle_distance_table(db, CODIGO_CIUDAD, distancias_formateadas)
                             print("[*] Tabla de distancias actualizada exitosamente en la base de datos")
                             
@@ -236,9 +311,9 @@ def start_consumer():
                         ciudad_solicitante = mensaje.get("source") or mensaje.get("cityId") or "Desconocido"
 
                         if ciudad_solicitante == "Desconocido":
-                             print("[!] Advertencia: Solicitud de tabla sin 'source' ni 'cityId'. Ignorando.")
-                             ch.basic_ack(delivery_tag=method.delivery_tag)
-                             return
+                            print("[!] Advertencia: Solicitud de tabla sin 'source' ni 'cityId'. Ignorando.")
+                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                            return
 
                         print(f"[*] Solicitud de tabla recibida de: {ciudad_solicitante}. Preparando respuesta...")
 
@@ -279,17 +354,17 @@ def start_consumer():
                         publicar_mensaje(
                             channel=ch,
                             exchange='fulfillment.x',
-                            routing_key=f"city.{ciudad_origen.lower()}",
+                            routing_key=f"city.{ciudad_solicitante.lower()}",
                             message_dict=respuesta_costos
                         )
-                        print(f"[*] Tabla de distancias ha sido enviada a {ciudad_origen}.")
+                        print(f"[*] Tabla de distancias ha sido enviada a {ciudad_solicitante}.")
                     finally:
                         db.close()
                 
                 # Ack del broker
                 # Una vez procesado, se debe borrar de la cola
                 ch.basic_ack(delivery_tag=method.delivery_tag)
-                print(f"[*] Mensaje procesado y retirado de la cola.")
+                print("[*] Mensaje procesado y retirado de la cola.")
 
             except json.JSONDecodeError:
                 # Caso en que el mensaje no es un JSON valido
@@ -334,6 +409,7 @@ def start_consumer():
     except Exception as e:
         print(f"[!] Error al conectar con RabbitMQ: {repr(e)}")
         traceback.print_exc()
+
 
 # Para probar este script directamente de forma local
 if __name__ == "__main__":

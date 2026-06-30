@@ -5,7 +5,6 @@ from typing import Optional
 from src.database import get_db
 from src.auth_utils import require_admin
 from src.services.package_service import (
-    get_all_packages,
     get_package_by_id,
 )
 from src.handlers.package_handler import handle_package_delivered

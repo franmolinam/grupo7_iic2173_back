@@ -26,6 +26,15 @@ class ShipmentRequestCreate(BaseModel):
     max_hops: int
     deliver_not_before: Optional[datetime] = None
     meta_content: Optional[str] = None
+    insured: bool = False
+    priority_class: str = "medium"
+
+    @field_validator("priority_class")
+    @classmethod
+    def priority_class_valido(cls, v):
+        if v not in ("low", "medium", "high"):
+            raise ValueError("priority_class debe ser 'low', 'medium' o 'high'")
+        return v
 
     @field_validator("criteria")
     @classmethod
@@ -47,7 +56,7 @@ def create_shipment(
     body: ShipmentRequestCreate,
     db: Session = Depends(get_db),
     payload: dict = Depends(validate_token),
-    #payload = {"sub": "test-user"}  # temporal para probar
+    #payload = {"sub": "test-user"}  # para probar
 ):
     user_id = payload.get("sub")
 
@@ -61,6 +70,7 @@ def create_shipment(
             criteria=body.criteria,
             max_hops=body.max_hops,
             fprice=get_fprice(db),
+            insured=body.insured,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -80,6 +90,7 @@ def create_shipment(
         max_hops=body.max_hops,
         deliver_not_before=body.deliver_not_before,
         meta_content=body.meta_content,
+        is_insured=body.insured,
         fprice=quotation["fprice"],
         route_metric_cost=quotation["route_metric_cost"],
         hops_count=quotation["hops_count"],
@@ -87,6 +98,7 @@ def create_shipment(
         full_path=quotation["full_path"],
         final_price=quotation["final_price"],
         status="quoted",
+        priority_class=body.priority_class,
     )
 
     db.add(shipment)
@@ -104,6 +116,9 @@ def create_shipment(
         "full_path": shipment.full_path,
         "fprice": shipment.fprice,
         "final_price": shipment.final_price,
+        "is_insured": shipment.is_insured,
+        "insurance_premium": quotation.get("insurance_premium", 0),
+        "priority_class": shipment.priority_class,
         "created_at": shipment.created_at,
     }
 
@@ -149,6 +164,7 @@ def my_shipments(
             "route_metric_cost": s.route_metric_cost,
             "fprice": s.fprice,
             "final_price": s.final_price,
+            "is_insured": s.is_insured,
             "deliver_not_before": s.deliver_not_before,
             "meta_content": s.meta_content,
             "created_at": s.created_at,
