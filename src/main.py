@@ -10,6 +10,7 @@ from src.routes.packages import router as packages_router
 from src.routes.payments import router as payments_router
 from src.routes.shipments import router as shipments_router
 from src.routes.subscriptions import router as subscriptions_router
+from src.routes.events import router as events_router
 
 
 # inicialización de la app
@@ -75,6 +76,7 @@ app.include_router(config_router)
 app.include_router(payments_router)
 app.include_router(shipments_router)
 app.include_router(subscriptions_router)
+app.include_router(events_router)
 
 from src.auth_utils import validate_token, is_admin
 @app.get("/me")

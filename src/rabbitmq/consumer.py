@@ -16,11 +16,26 @@ from src.handlers.package_handler import (
     get_local_distance_table
 )
 
+import requests as http_requests
+
 from src.database import SessionLocal
 from src.services.package_service import get_package_by_id
 
 # Cargar variables del .env
 load_dotenv()
+
+API_INTERNAL_URL = os.getenv("API_INTERNAL_URL", "http://api:8000")
+
+def emit_to_api(event_type: str, payload: dict):
+    try:
+        http_requests.post(
+            f"{API_INTERNAL_URL}/events/emit",
+            json={"event": event_type, "data": payload},
+            timeout=2,
+        )
+    except Exception:
+        pass
+
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5671))
@@ -148,6 +163,11 @@ def start_consumer():
                         if accion == "deliver":
                             print(f"[*] Paquete {resultado['package_id']} es para LSN. Queda pendiente de entrega local.")
                             enviar_reporte_auditor(ch, resultado['package_id'], "received")
+                            # Emitir evento de paquete recibido
+                            emit_to_api("package_received", {
+                                "package_id": resultado['package_id'],
+                                "from_city": ciudad_origen,
+                            })
                         
                         elif accion == "expire":
                             print(f"[*] Paquete {resultado['package_id']} expiró (maxHops=0).")
@@ -177,6 +197,12 @@ def start_consumer():
                                     message_dict=notificacion,
                                 )
                                 print(f"[*] Notificación expired enviada a ciudad origen: {origen}")
+                                # Emitir evento de paquete expirado
+                                emit_to_api("insurance_charged", {
+                                    "package_id": resultado['package_id'],
+                                    "origin": origen,
+                                    "reason": "Paquete asegurado expirado",
+                                })
                         
                         elif accion == "pending_routing":
                             print(f"[*] Paquete {resultado['package_id']} se quedó sin ruta hacia {cuerpo.get('destinationId', '').upper()}. Guardado como pending-routing.")
@@ -214,6 +240,12 @@ def start_consumer():
                             
                             # Aviso a la DB que el reenvio fue exitoso
                             handle_package_forwarded(db, resultado["package_id"], siguiente_ciudad)
+                            # Emitir evento de paquete reenviado
+                            emit_to_api("package_redirected", {
+                                "package_id": resultado['package_id'],
+                                "to_city": siguiente_ciudad,
+                                "priority_class": cuerpo.get("priorityClass", "medium"),
+                            })
                             enviar_reporte_auditor(ch, resultado['package_id'], "transit", siguiente_ciudad)
 
                     finally:
