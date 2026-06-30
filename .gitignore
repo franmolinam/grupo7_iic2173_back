@@ -19,6 +19,7 @@ __pycache__/
 
 # Logs
 *.log
+output/
 
 #Credenciales
 key-ec2-cityexpress-api.pem
