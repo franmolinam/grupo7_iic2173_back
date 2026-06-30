@@ -85,3 +85,4 @@ Contexto: Buscaba identificar que estaba funcionando en consumidor localmente pa
 ### 19. Aclaración sobre el estado de enlace del monitor 
 **Prompt:** "El tema es que lo cree desde el panel de el monitor, asi que no se porque no esta enlazado [imagen]"
 **Respuesta:** La IA explicó que el indicador gris del monitor se debe al comportamiento de *New Relic* al generar alertas basadas en consultas de datos (NRQL) a través del modo guiado, lo que ocasiona una demora o desconexión gráfica en la interfaz local a pesar de haberse iniciado el proceso desde allí, confirmando a su vez que esta situación puramente visual no afecta la funcionalidad operativa de la alerta ni el cumplimiento del requerimiento evaluado.
+
