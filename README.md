@@ -33,7 +33,6 @@ Esta entrega implementa una arquitectura distribuida basada en microservicios, d
 
 ## Puntos logrados E1
 Requisitos Funcionales
-
 - RF01 – Visualización de paquetes recibidos
 - RF02 – Visualización de conectividad entre ciudades
 - RF03 – Sistema de ruteo implementado
@@ -84,6 +83,25 @@ Documentación
 - RDOC03 – Documentación paso a paso del despliegue en Serverless/SAM.
 - RDOC04 – Documentación explicativa del pipeline CI/CD.
 
+## Puntos logrados E3
+Requisitos Funcionales
+- RF01 – Habilitación de entregas con suscripción para los usuarios en la UI utilizando AWS step functions.
+- RF02 – Implementación de seguros para los paquetes, con opciones accesibles para los usuarios desde la interfaz.
+- RF03 – Capacidad para que los usuarios puedan fijar la prioridad de entrega sobre los paquetes.
+- RF04 – Implementación de un feed de eventos en tiempo real con SSE para el dashboard.
+
+Requisitos No Funcionales
+- RNF01 – Creación de alertas de observabilidad para detectar la falta de respuesta del frontend o backend, y el aumento de errores 500.
+- RNF02 – Recreación de la infraestructura del backend como código (IaC) mediante Terraform cloud o AWS CDK con AWS cloud formation.
+- RNF03 – Ejecución de Prowler cloud CLI y reparación de al menos 3 errores de seguridad de prioridad media o superior.
+- RNF04 – Implementación de monitoreo con trazas funcionales sintéticas en la API principal, con visualización en un dashboard.
+- RNF05 – Implementación de tests en los workflows de CI (linters y tests unitarios en backend; linters y Lighthouse en frontend) que validen y bloqueen el CD si no se cumplen.
+
+Documentación
+- RDOC01 – Actualización del diagrama UML de componentes incorporando los cambios de esta entrega, con detalles y explicaciones del sistema.
+- RDOC02 – Documentación de los endpoints de la API expuestos al frontend mediante la generación de un archivo OpenAPI.
+
+
 ## Consideraciones Generales
 - El proyecto fue desarrollado utilizando Docker desde el inicio.
 - Se utilizó solo un .env para el manejo de configuraciones sensibles.
@@ -101,3 +119,7 @@ Documentación
 8. [New Relic Python Agent Docs](https://docs.newrelic.com/docs/apm/agents/python-agent/getting-started/introduction-new-relic-python/)
 9. [New Relic Infrastructure Monitoring](https://docs.newrelic.com/docs/infrastructure/infrastructure-agent/linux-installation/infra-agent-as-container/)
 10. [Install Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+11. [NewRelic - Introduction to alerts](https://docs.newrelic.com/docs/alerts/overview/)
+12. [NewRelic - Introduction to synthetic monitors](https://docs.newrelic.com/docs/synthetics/synthetic-monitoring/using-monitors/intro-synthetic-monitoring/)
+13. [Prowler Cloud CLI - Installation](https://docs.prowler.com/getting-started/installation/prowler-cli#pip)
+14. [AWS CDK - Documentation](https://docs.aws.amazon.com/es_es/cdk/?id=docs_gateway)
