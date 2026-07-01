@@ -95,5 +95,6 @@ def get_me(
         "is_admin": is_admin(payload),
         "claims": payload
     }
-    
+
+
 handler = Mangum(app)
