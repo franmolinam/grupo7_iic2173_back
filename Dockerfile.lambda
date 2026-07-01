@@ -1,0 +1,11 @@
+FROM public.ecr.aws/lambda/python:3.11
+
+# Copiar todo el contenido del proyecto al directorio de trabajo de Lambda
+COPY . ${LAMBDA_TASK_ROOT}
+
+# Instalar las dependencias del backend
+RUN pip install -r requirements.txt
+
+# Comando para ejecutar el adaptador de la Lambda
+# NOTA: Como tus archivos están dentro de la carpeta 'src', asumimos que tu archivo principal es main.py o app.py
+CMD [ "src.main.handler" ]

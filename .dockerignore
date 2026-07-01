@@ -1,0 +1,25 @@
+# Entornos virtuales y dependencias pesadas
+.venv
+**/node_modules
+**/.serverless
+**/__pycache__
+*.pyc
+.pytest_cache
+.coverage
+
+# Carpetas de otros microservicios (No los necesita la Lambda de FastAPI)
+infra
+jobs_master
+step_functions
+docs
+tests
+
+# Archivos temporales de CDK
+cdk.out
+.cdk.staging
+
+# Seguridad y configuración local
+*.pem
+.env
+.git
+.vscode
