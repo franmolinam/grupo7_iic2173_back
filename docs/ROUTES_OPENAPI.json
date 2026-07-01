@@ -1,0 +1,975 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CityExpress API",
+    "description": "API REST de CityExpress desarrollada para el proyecto del curso IIC2173 - Arquitectura de Sistemas. Esta API es consumida por el frontend de la plataforma para gestionar envíos, paquetes, pagos, suscripciones y eventos en tiempo real mediante Server-Sent Events (SSE). Los endpoints protegidos utilizan autenticación mediante JWT Bearer Token.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.quackpackagemo.me",
+      "description": "API de producción"
+    }
+  ],
+  "externalDocs": {
+    "description": "Aplicación Frontend de CityExpress",
+    "url": "https://eliasapi.me"
+  },
+  "tags": [
+    {
+      "name": "admin",
+      "description": "Endpoints exclusivos para administradores que permiten monitorear el estado interno del sistema, incluyendo trabajos de enrutamiento, rutas calculadas y pagos registrados."
+    },
+    {
+      "name": "connections",
+      "description": "Consulta las conexiones disponibles entre la ciudad actual y el resto de las ciudades del sistema."
+    },
+    {
+      "name": "packages",
+      "description": "Consulta y administración de los paquetes registrados en la ciudad actual."
+    },
+    {
+      "name": "config",
+      "description": "Configuración de parámetros globales utilizados por la aplicación."
+    },
+    {
+      "name": "payments",
+      "description": "Gestión del proceso de pago asociado a los envíos."
+    },
+    {
+      "name": "shipments",
+      "description": "Creación y consulta de solicitudes de envío."
+    },
+    {
+      "name": "subscriptions",
+      "description": "Administración de suscripciones para la creación periódica de envíos."
+    },
+    {
+      "name": "events",
+      "description": "Eventos en tiempo real mediante Server-Sent Events (SSE) consumidos por el dashboard."
+    }
+  ],
+  "/admin/jobs": {
+    "get": {
+      "tags": [
+        "admin"
+      ],
+      "summary": "Obtener trabajos de enrutamiento",
+      "description": "Obtiene todos los trabajos (Routing Jobs) registrados en la ciudad actual. Este endpoint es exclusivo para administradores y permite monitorear el estado de los procesos de cálculo de rutas ejecutados por el sistema.",
+      "operationId": "get_jobs_admin_jobs_get",
+      "responses": {
+        "200": {
+          "description": "Lista de trabajos obtenida correctamente.",
+          "content": {
+            "application/json": {
+              "example": [
+                {
+                  "id": 1,
+                  "status": "completed",
+                  "criteria": "distance",
+                  "origin": "LSN",
+                  "destination": "SCL",
+                  "route_metric_cost": 320,
+                  "hop_count": 2,
+                  "hops": [
+                    "LSN",
+                    "VAP",
+                    "SCL"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "403": {
+          "description": "Acceso permitido únicamente para administradores."
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/admin/routes": {
+    "get": {
+      "tags": [
+        "admin"
+      ],
+      "summary": "Obtener rutas calculadas",
+      "description": "Retorna todas las rutas calculadas para los envíos que ya poseen un recorrido asignado. Permite visualizar el camino completo, el siguiente salto y el costo de la ruta.",
+      "operationId": "get_routes_admin_routes_get",
+      "responses": {
+        "200": {
+          "description": "Listado de rutas obtenido correctamente.",
+          "content": {
+            "application/json": {
+              "example": [
+                {
+                  "shipment_id": "9b5c",
+                  "origin": "LSN",
+                  "destination": "SCL",
+                  "criteria": "distance",
+                  "route_metric_cost": 210,
+                  "hops_count": 3,
+                  "next_hop": "VAP",
+                  "full_path": [
+                    "LSN",
+                    "VAP",
+                    "SCL"
+                  ],
+                  "status": "routing"
+                }
+              ]
+            }
+          }
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "403": {
+          "description": "Acceso permitido únicamente para administradores."
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/admin/payments": {
+    "get": {
+      "tags": [
+        "admin"
+      ],
+      "summary": "Obtener pagos",
+      "description": "Obtiene todos los pagos registrados en el sistema. Este endpoint permite a los administradores revisar el estado de cada transacción asociada a un envío.",
+      "operationId": "get_payments_admin_payments_get",
+      "responses": {
+        "200": {
+          "description": "Listado de pagos obtenido correctamente.",
+          "content": {
+            "application/json": {
+              "example": [
+                {
+                  "id": "pay_123",
+                  "status": "paid",
+                  "amount": 8500,
+                  "currency": "CLP",
+                  "user_id": "user_10",
+                  "shipment_request_id": "shipment_55"
+                }
+              ]
+            }
+          }
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "403": {
+          "description": "Acceso permitido únicamente para administradores."
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/connections": {
+    "get": {
+      "tags": [
+        "connections"
+      ],
+      "summary": "Listar conexiones disponibles",
+      "description": "Obtiene todas las conexiones disponibles desde la ciudad actual hacia las demás ciudades de la red logística. Cada conexión indica la distancia, costo de transporte y si se encuentra habilitada para realizar envíos.",
+      "operationId": "list_connections_connections_get",
+      "responses": {
+        "200": {
+          "description": "Conexiones obtenidas correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "total": 16,
+                "connections": [
+                  {
+                    "destination_code": "SCL",
+                    "destination_name": "Santiago",
+                    "distance": 120,
+                    "transport_cost": 1500,
+                    "enabled": true
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "403": {
+          "description": "Acceso permitido únicamente para administradores."
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "/packages": {
+    "get": {
+      "tags": [
+        "packages"
+      ],
+      "summary": "Listar paquetes",
+      "description": "Obtiene la lista de todos los paquetes registrados en la ciudad actual. Permite filtrar los resultados utilizando distintos criterios como estado, origen, destino, prioridad, fecha de creación y estrategia de entrega. El acceso está restringido a administradores.",
+      "operationId": "list_packages_packages_get",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "page",
+          "in": "query",
+          "required": false,
+          "description": "Número de página a consultar.",
+          "schema": {
+            "type": "integer",
+            "default": 1
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "description": "Cantidad máxima de paquetes por página.",
+          "schema": {
+            "type": "integer",
+            "default": 25
+          }
+        },
+        {
+          "name": "status",
+          "in": "query",
+          "required": false,
+          "description": "Filtrar por estado del paquete.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "origin_id",
+          "in": "query",
+          "required": false,
+          "description": "Código de la ciudad de origen.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "destination_id",
+          "in": "query",
+          "required": false,
+          "description": "Código de la ciudad de destino.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "max_hops",
+          "in": "query",
+          "required": false,
+          "description": "Cantidad máxima de saltos permitidos.",
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "created_at",
+          "in": "query",
+          "required": false,
+          "description": "Fecha de creación del paquete.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "deliver_not_before",
+          "in": "query",
+          "required": false,
+          "description": "Fecha mínima de entrega.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "delivery_strategy",
+          "in": "query",
+          "required": false,
+          "description": "Estrategia de entrega utilizada.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "priority_class",
+          "in": "query",
+          "required": false,
+          "description": "Prioridad del paquete (low, medium o high).",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Listado de paquetes obtenido correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "total": 1,
+                "packages": [
+                  {
+                    "id": "pkg_100",
+                    "origin_id": "LSN",
+                    "destination_id": "SCL",
+                    "status": "in_transit",
+                    "priority_class": "high",
+                    "delivery_strategy": "fastest",
+                    "payment": 3500,
+                    "last_action": "Paquete recibido",
+                    "last_processed_at": "2026-06-28T15:30:00"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "403": {
+          "description": "Acceso permitido únicamente para administradores."
+        },
+        "422": {
+          "description": "Error de validación en los parámetros enviados."
+        }
+      }
+    }
+  },
+  "/packages/{package_id}": {
+    "get": {
+      "tags": [
+        "packages"
+      ],
+      "summary": "Obtener detalle de un paquete",
+      "description": "Obtiene toda la información almacenada para un paquete específico identificado por su ID. Este endpoint es utilizado por los administradores para consultar el estado actual, historial y atributos completos del paquete.",
+      "operationId": "get_package_packages__package_id__get",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "package_id",
+          "in": "path",
+          "required": true,
+          "description": "Identificador único del paquete.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Información del paquete obtenida correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "id": "pkg_100",
+                "origin_id": "LSN",
+                "destination_id": "SCL",
+                "status": "in_transit",
+                "priority_class": "high",
+                "delivery_strategy": "fastest",
+                "created_at": "2026-06-30T14:30:00",
+                "deliver_not_before": "2026-07-01T10:00:00",
+                "payment": 3500,
+                "last_action": "Paquete recibido",
+                "last_processed_at": "2026-06-30T15:10:00"
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "403": {
+          "description": "Acceso permitido únicamente para administradores."
+        },
+        "404": {
+          "description": "No existe un paquete con el identificador indicado."
+        },
+        "422": {
+          "description": "Error de validación del parámetro enviado."
+        }
+      }
+    }
+  },
+  "/packages/{package_id}/deliver": {
+    "post": {
+      "tags": [
+        "packages"
+      ],
+      "summary": "Registrar entrega de un paquete",
+      "description": "Marca un paquete como entregado una vez que llega a su destino. Antes de completar la operación se valida que el paquete exista, que aún no haya sido entregado y que cumpla con las restricciones de entrega configuradas.",
+      "operationId": "deliver_package_packages__package_id__deliver_post",
+      "parameters": [
+        {
+          "name": "package_id",
+          "in": "path",
+          "required": true,
+          "description": "Identificador único del paquete que será entregado.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Entrega registrada correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "message": "Package delivered successfully.",
+                "package": {
+                  "id": "pkg_100",
+                  "status": "delivered",
+                  "last_action": "Entregado",
+                  "last_processed_at": "2026-07-01T13:45:00"
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "El paquete ya fue entregado o no cumple las condiciones para ser entregado."
+        },
+        "404": {
+          "description": "No existe un paquete con el identificador indicado."
+        },
+        "422": {
+          "description": "Error de validación del parámetro enviado."
+        }
+      }
+    }
+  },
+  "/config/fprice": {
+    "get": {
+      "tags": [
+        "config"
+      ],
+      "summary": "Obtener factor de precio",
+      "description": "Obtiene el valor actual del factor de precio (fprice) utilizado para calcular el costo final de los envíos. Este endpoint es público y es utilizado por el frontend para mostrar al usuario el valor vigente antes de generar una cotización.",
+      "operationId": "read_fprice_config_fprice_get",
+      "responses": {
+        "200": {
+          "description": "Factor de precio obtenido correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "fprice": 1.25
+              }
+            }
+          }
+        }
+      }
+    },
+    "put": {
+      "tags": [
+        "config"
+      ],
+      "summary": "Actualizar factor de precio",
+      "description": "Actualiza el valor del factor de precio utilizado para calcular el costo de los envíos. Esta operación está restringida únicamente a administradores.",
+      "operationId": "update_fprice_config_fprice_put",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FpriceUpdate"
+            },
+            "example": {
+              "value": 1.35
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Factor de precio actualizado correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "fprice": 1.35,
+                "message": "fprice actualizado correctamente"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "El valor enviado está fuera del rango permitido (0.5 - 2.0)."
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "403": {
+          "description": "Acceso permitido únicamente para administradores."
+        },
+        "422": {
+          "description": "Error de validación del cuerpo de la solicitud."
+        }
+      }
+    }
+  },
+  "/shipments": {
+    "post": {
+      "tags": [
+        "shipments"
+      ],
+      "summary": "Crear cotización y solicitud de envío",
+      "description": "Genera una cotización para un nuevo envío utilizando las dimensiones del paquete, el criterio de optimización seleccionado, el factor de precio vigente y las preferencias del usuario (seguro y prioridad). Si la cotización es válida, la solicitud de envío se almacena con estado 'quoted' y queda disponible para iniciar el proceso de pago.",
+      "operationId": "create_shipment_shipments_post",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ShipmentRequestCreate"
+            },
+            "example": {
+              "destination_id": "SCL",
+              "height": 25,
+              "width": 20,
+              "depth": 15,
+              "criteria": "price",
+              "max_hops": 3,
+              "insured": true,
+              "priority_class": "high",
+              "meta_content": "Notebook"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Cotización creada correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "id": "shipment_123",
+                "status": "quoted",
+                "destination_id": "SCL",
+                "criteria": "price",
+                "route_metric_cost": 210,
+                "hops_count": 2,
+                "next_hop": "VAP",
+                "full_path": [
+                  "LSN",
+                  "VAP",
+                  "SCL"
+                ],
+                "fprice": 1.2,
+                "final_price": 8600,
+                "is_insured": true,
+                "insurance_premium": 430,
+                "priority_class": "high"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Los datos enviados no permiten generar una cotización válida."
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "422": {
+          "description": "Error de validación del cuerpo de la solicitud."
+        },
+        "503": {
+          "description": "No fue posible generar la cotización debido a un servicio externo no disponible."
+        }
+      }
+    }
+  },
+  "/shipments/my-shipments": {
+    "get": {
+      "tags": [
+        "shipments"
+      ],
+      "summary": "Obtener mis envíos",
+      "description": "Obtiene todos los envíos pertenecientes al usuario autenticado. Para cada envío se incluye la información de la cotización, el estado del pago asociado (si existe) y el paquete generado posteriormente al pago.",
+      "operationId": "my_shipments_shipments_my_shipments_get",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Listado de envíos obtenido correctamente.",
+          "content": {
+            "application/json": {
+              "example": [
+                {
+                  "id": "shipment_123",
+                  "status": "paid",
+                  "origin_id": "LSN",
+                  "destination_id": "SCL",
+                  "criteria": "price",
+                  "final_price": 8200,
+                  "priority_class": "medium",
+                  "payment": {
+                    "id": "pay_001",
+                    "status": "AUTHORIZED",
+                    "amount": 8200,
+                    "currency": "CLP"
+                  },
+                  "package": {
+                    "id": "pkg_001",
+                    "status": "in_transit",
+                    "last_action": "Paquete recibido"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "401": {
+          "description": "No autenticado."
+        }
+      }
+    }
+  },
+  "/shipments/jobs/heartbeat": {
+    "get": {
+      "tags": [
+        "shipments"
+      ],
+      "summary": "Verificar estado del Jobs Master",
+      "description": "Permite verificar si el servicio Jobs Master se encuentra operativo. Este endpoint es utilizado por el frontend para monitorear la disponibilidad del servicio encargado del cálculo y ejecución de trabajos de enrutamiento.",
+      "operationId": "jobs_heartbeat_shipments_jobs_heartbeat_get",
+      "responses": {
+        "200": {
+          "description": "Estado del servicio obtenido correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "alive": true,
+                "jobs_master_url": "http://jobs-master:8000"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/shipments/{shipment_id}/pay": {
+    "post": {
+      "tags": [
+        "payments"
+      ],
+      "summary": "Iniciar pago de un envío",
+      "description": "Inicia el proceso de pago para una solicitud de envío previamente cotizada. El sistema genera una transacción que posteriormente será confirmada mediante el callback del proveedor de pagos.",
+      "operationId": "initiate_payment_shipments__shipment_id__pay_post",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "shipment_id",
+          "in": "path",
+          "required": true,
+          "description": "Identificador único de la solicitud de envío.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "201": {
+          "description": "Proceso de pago iniciado correctamente."
+        },
+        "400": {
+          "description": "El envío no puede ser pagado debido a su estado actual."
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "404": {
+          "description": "No existe la solicitud de envío indicada."
+        },
+        "422": {
+          "description": "Error de validación del identificador."
+        }
+      }
+    }
+  },
+  "/payments/callback": {
+    "post": {
+      "tags": [
+        "payments"
+      ],
+      "summary": "Procesar callback de pago",
+      "description": "Endpoint utilizado por el proveedor de pagos para confirmar el resultado de una transacción. Una vez recibido el callback, el sistema actualiza el estado del pago y continúa el flujo correspondiente del envío.",
+      "operationId": "payment_callback_payments_callback_post",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CallbackBody"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Callback procesado correctamente."
+        },
+        "400": {
+          "description": "La información enviada por el proveedor es inválida."
+        },
+        "422": {
+          "description": "Error de validación del cuerpo de la solicitud."
+        }
+      }
+    },
+    "get": {
+      "tags": [
+        "payments"
+      ],
+      "summary": "Confirmar transacción",
+      "description": "Endpoint utilizado para completar el flujo de confirmación del pago mediante el token entregado por el proveedor de pagos.",
+      "operationId": "payment_callback_get_payments_callback_get",
+      "parameters": [
+        {
+          "name": "token_ws",
+          "in": "query",
+          "required": false,
+          "description": "Token generado por el proveedor de pagos para confirmar la transacción.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Pago confirmado correctamente."
+        },
+        "422": {
+          "description": "Error de validación del parámetro enviado."
+        }
+      }
+    }
+  },
+  "/subscriptions": {
+    "get": {
+      "tags": [
+        "subscriptions"
+      ],
+      "summary": "Listar suscripciones",
+      "description": "Obtiene todas las suscripciones de envíos periódicos pertenecientes al usuario autenticado.",
+      "operationId": "listar_suscripciones_subscriptions_get",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Listado de suscripciones obtenido correctamente."
+        },
+        "401": {
+          "description": "No autenticado."
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "subscriptions"
+      ],
+      "summary": "Crear suscripción",
+      "description": "Crea una nueva suscripción para generar envíos automáticos utilizando AWS Step Functions. La suscripción define la periodicidad, presupuesto disponible, costo por envío y cantidad máxima de envíos a ejecutar.",
+      "operationId": "crear_suscripcion_subscriptions_post",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SubscriptionCreate"
+            },
+            "example": {
+              "destination_id": "SCL",
+              "height": 20,
+              "width": 20,
+              "depth": 20,
+              "criteria": "price",
+              "max_hops": 3,
+              "periodicity_seconds": 3600,
+              "budget": 50000,
+              "cost_per_shipment": 5000,
+              "quantity": 10
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Suscripción creada correctamente."
+        },
+        "400": {
+          "description": "Los datos enviados no cumplen las restricciones definidas para una suscripción."
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "500": {
+          "description": "Error interno al crear la suscripción."
+        },
+        "422": {
+          "description": "Error de validación del cuerpo de la solicitud."
+        }
+      }
+    }
+  },
+  "/subscriptions/{subscription_id}": {
+    "get": {
+      "tags": [
+        "subscriptions"
+      ],
+      "summary": "Obtener detalle de una suscripción",
+      "description": "Obtiene toda la información de una suscripción específica perteneciente al usuario autenticado, incluyendo el historial de paquetes generados automáticamente.",
+      "operationId": "detalle_suscripcion_subscriptions__subscription_id__get",
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "subscription_id",
+          "in": "path",
+          "required": true,
+          "description": "Identificador único de la suscripción.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Detalle de la suscripción obtenido correctamente."
+        },
+        "401": {
+          "description": "No autenticado."
+        },
+        "404": {
+          "description": "La suscripción solicitada no existe."
+        },
+        "422": {
+          "description": "Error de validación del identificador."
+        }
+      }
+    }
+  },
+  "/events": {
+    "get": {
+      "tags": [
+        "events"
+      ],
+      "summary": "Suscribirse al flujo de eventos",
+      "description": "Establece una conexión mediante Server-Sent Events (SSE) para recibir en tiempo real los eventos generados por la plataforma, como creación de envíos, recepción de paquetes, redirecciones y cobros de seguros.",
+      "operationId": "sse_feed_events_get",
+      "responses": {
+        "200": {
+          "description": "Conexión SSE establecida correctamente.",
+          "content": {
+            "text/event-stream": {}
+          }
+        }
+      }
+    }
+  },
+  "/events/emit": {
+    "post": {
+      "tags": [
+        "events"
+      ],
+      "summary": "Emitir evento interno",
+      "description": "Endpoint interno utilizado para publicar eventos dentro del sistema que posteriormente serán enviados a los clientes conectados mediante Server-Sent Events. No está destinado a ser utilizado directamente por el frontend.",
+      "operationId": "internal_emit_events_emit_post",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EmitPayload"
+            },
+            "example": {
+              "event": "shipment_created",
+              "data": {
+                "shipment_id": "shipment_123",
+                "status": "quoted"
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Evento emitido correctamente.",
+          "content": {
+            "application/json": {
+              "example": {
+                "ok": true
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Error de validación del cuerpo de la solicitud."
+        }
+      }
+    }
+  }
+}
