@@ -9,3 +9,4 @@ auth0-fastapi-api
 newrelic
 transbank-sdk
 boto3
+mangum
