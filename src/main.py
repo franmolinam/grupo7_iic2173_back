@@ -1,6 +1,8 @@
+import os
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from mangum import Mangum
 
 from src.auth_utils import validate_token
 from src.routes.admin import router as admin_router
@@ -13,11 +15,16 @@ from src.routes.subscriptions import router as subscriptions_router
 from src.routes.events import router as events_router
 
 
+# Detectar si estamos corriendo dentro de AWS Lambda
+IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
+
 # inicialización de la app
 app = FastAPI(
     title="CityExpress API",
     description="Entrega 1 proyecto Arquisis - Los Santos (LSN)",
-    version="1.0.0"
+    version="1.0.0",
+    # Si está en AWS inyecta /prod de forma invisible para Swagger, si está local se queda limpio
+    root_path="/prod" if IS_LAMBDA else ""
 )
 
 # CORS para permitir solicitudes desde el frontend
@@ -88,3 +95,6 @@ def get_me(
         "is_admin": is_admin(payload),
         "claims": payload
     }
+
+
+handler = Mangum(app)

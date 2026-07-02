@@ -23,3 +23,15 @@ output/
 
 #Credenciales
 key-ec2-cityexpress-api.pem
+
+# Test de Python adicionales
+.pytest_cache/
+.coverage
+
+# Dependencias de los otros microservicios (Node y Serverless)
+**/node_modules/
+**/.serverless/
+
+# Temporales de AWS CDK
+infra/cdk.out/
+infra/.cdk.staging/

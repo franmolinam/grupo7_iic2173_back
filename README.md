@@ -15,6 +15,7 @@
 
 ## Consideraciones Generales
 **Nombre del dominio:** https://api.quackpackagemo.me/
+**Nombre del swagger:** https://pmkctp0s5g.execute-api.us-east-2.amazonaws.com/prod/
 
 **Método de acceso al servidor:**  
   - Archivo .pem: `key-ec2-cityexpress-api.pem`  
