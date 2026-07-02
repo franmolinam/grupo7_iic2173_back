@@ -71,6 +71,7 @@ def create_shipment(
             max_hops=body.max_hops,
             fprice=get_fprice(db),
             insured=body.insured,
+            priority_class=body.priority_class,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
