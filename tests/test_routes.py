@@ -293,6 +293,31 @@ def test_create_shipment_ok(client):
         assert data["final_price"] == 36000
         assert data["next_hop"] == "TRA"
 
+# test de regresión: priority_class del body debe reenviarse a get_quotation
+# (bug encontrado: el handler lo ignoraba y calculate_price siempre usaba "medium")
+def test_create_shipment_reenvia_priority_class(client):
+    with patch("src.routes.shipments.get_quotation", return_value={
+        "criteria": "price",
+        "route_metric_cost": 12000,
+        "hops_count": 2,
+        "next_hop": "TRA",
+        "full_path": ["LSN", "TRA", "HGW"],
+        "fprice": 1.0,
+        "final_price": 90000,
+    }) as mock_get_quotation:
+        response = client.post("/shipments", json={
+            "destination_id": "HGW",
+            "height": 100,
+            "width": 100,
+            "depth": 100,
+            "criteria": "price",
+            "max_hops": 3,
+            "priority_class": "high",
+        })
+        assert response.status_code == 201
+        assert mock_get_quotation.call_args.kwargs["priority_class"] == "high"
+        assert response.json()["priority_class"] == "high"
+
 # test para verificar que dimensiones inválidas retornan 400
 def test_create_shipment_dimensiones_invalidas(client):
     with patch("src.routes.shipments.get_quotation", side_effect=ValueError("Las dimensiones superan el máximo")):
