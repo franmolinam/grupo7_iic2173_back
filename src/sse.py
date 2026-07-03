@@ -7,7 +7,7 @@ from typing import AsyncGenerator, Optional
 # API Gateway mataba conexiones (por construcción) luego de ~30s sin importar la actividad
 # con EventSource reconectamos periodicamente. respuestas de History + Last-Event-ID permiten
 # que los clientes reconectados alcanecn cualquier evento que se les perdió durante el gap.
-HISTORY_SIZE = 200
+HISTORY_SIZE = 20
 KEEPALIVE_SECONDS = 15
 
 _subscribers: list[asyncio.Queue] = []
@@ -20,10 +20,13 @@ def get_subscribers():
 
 
 async def event_stream(queue: asyncio.Queue, last_event_id: Optional[int] = None) -> AsyncGenerator[str, None]:
-    if last_event_id is not None:
-        for event_id, data in _history:
-            if event_id > last_event_id:
-                yield f"id: {event_id}\ndata: {json.dumps(data)}\n\n"
+    # Sin last_event_id (montaje nuevo de la página, no una reconexión) igual
+    # mandamos el historial reciente, para que el feed no se vea vacío solo
+    # porque el usuario no estaba mirando cuando ocurrió el evento.
+    since_id = last_event_id if last_event_id is not None else 0
+    for event_id, data in _history:
+        if event_id > since_id:
+            yield f"id: {event_id}\ndata: {json.dumps(data)}\n\n"
 
     _subscribers.append(queue)
     try:
