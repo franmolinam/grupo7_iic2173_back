@@ -4,9 +4,9 @@ from collections import deque
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 
-# API Gateway kills long-lived connections after ~30s regardless of activity,
-# so EventSource reconnects periodically. History + Last-Event-ID replay let
-# reconnecting clients pick up any events they missed during the gap.
+# API Gateway mataba conexiones (por construcción) luego de ~30s sin importar la actividad
+# con EventSource reconectamos periodicamente. respuestas de History + Last-Event-ID permiten
+# que los clientes reconectados alcanecn cualquier evento que se les perdió durante el gap.
 HISTORY_SIZE = 200
 KEEPALIVE_SECONDS = 15
 

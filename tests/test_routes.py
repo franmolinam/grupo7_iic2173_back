@@ -294,7 +294,6 @@ def test_create_shipment_ok(client):
         assert data["next_hop"] == "TRA"
 
 # test de regresión: priority_class del body debe reenviarse a get_quotation
-# (bug encontrado: el handler lo ignoraba y calculate_price siempre usaba "medium")
 def test_create_shipment_reenvia_priority_class(client):
     with patch("src.routes.shipments.get_quotation", return_value={
         "criteria": "price",
