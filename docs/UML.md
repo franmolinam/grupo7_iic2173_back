@@ -24,77 +24,103 @@ Es un `component`, porque es el encargado de gestionar el cifrado y descifrado d
 ### 3.2 Reverse Proxy Routing to API
 Es un `subsystem`, porque agrupa la lógica de redirección de peticiones hacia los servicios internos. Este recibe información del SSL/TLS Terminator vía IInternalRequest y entrega las peticiones ya redirigidas al HTTP Controllers de la CityExpress API vía IProxiedRequest, que son recibidas a través de la interfaz IForwardedRequest.
 
-## 4. CityExpress API
-Es un `subsystem`, porque contiene la lógica de negocio, controladores HTTP, validaciones y gestión de pagos necesarias para cumplir con los requisitos funcionales de la aplicación. Este recibe peticiones del Nginx Proxy, persiste datos en la DB CityExpress vía IRepository, se comunica con Webpay (Transbank)
-para el procesamiento de pagos, y delega el cálculo de rutas al JobsMaster vía IManageJobs.
+## 4. AWS CDK
+Es un `system`, porque es la infraestructura del backend definida como código (IaC) mediante AWS CDK (RNF02). Despliega una réplica serverless completa de la CityExpress API, con su propio dominio y Swagger. No reemplaza el despliegue productivo en la AWS EC2 Instance/Docker Network, que sigue siendo gestionado vía CodeDeploy y ECR. Es un stack paralelo que demuestra la gestión de infraestructura como código.
 
-### 4.1 HTTP Controllers
-Es un `component`, porque es el módulo que gestiona las rutas de la API y procesa las solicitudes entrantes para los endpoints definidos. Recibe peticiones del Nginx Proxy vía IForwardedRequest y las delega a Auth Validator vía IAuthValidation, al Router de Paquetes vía IPackageRouting, a la Shipment Interface vía IShipmentOps,y al Payment Controller vía IIPaymentOps. Es instrumentado por el APM de New Relic a través de IAppMetrics.
+### 4.1 FastAPI Lambda
+Es un `component`, porque empaqueta la aplicación FastAPI completa (la misma base de código que corre en la EC2) como una función Lambda mediante Mangum, distribuida como imagen Docker (`DockerImageFunction`). Recibe peticiones de API Gateway (CDK) vía IProxyIntegration, persiste y consulta datos en la DB CityExpress vía IRepository. Además, arranca ejecuciones de suscripción en AWS Step Functions vía IStartExecution.
 
-### 4.2 Auth Validator
+### 4.2 API Gateway (CDK)
+Es un `component`, porque es el punto de entrada HTTP gestionado por CDK (`LambdaRestApi` con integración proxy) que reenvía toda petición entrante directamente a FastAPI Lambda vía IProxyIntegration.
+
+## 5. CityExpress API
+Es un `subsystem`, porque contiene la lógica de negocio, controladores HTTP, validaciones y gestión de pagos necesarias para cumplir con los requisitos funcionales de la aplicación. Este recibe peticiones del Nginx Proxy, persiste datos en la DB CityExpress vía IRepository, se comunica con Webpay para el procesamiento de pagos, delega el cálculo de rutas al JobsMaster vía IManageJobs, y arranca entregas periódicas en AWS Step Functions vía IStartExecution.
+
+### 5.1 HTTP Controllers
+Es un `component`, porque es el módulo que gestiona las rutas de la API y procesa las solicitudes entrantes para los endpoints definidos. Recibe peticiones del Nginx Proxy vía IForwardedRequest y las delega a Auth Validator vía IAuthValidation, al Router de Paquetes vía IPackageRouting, a la Shipment Interface vía IShipmentOps, al Payment Controller vía IIPaymentOps, a Subscription Controller vía ISubscriptionOps, y a Events Controller vía IEventsOps. Es instrumentado por el APM de New Relic a través de IAppMetrics.
+
+### 5.2 Auth Validator
 Es un `component`, porque es el encargado de verificar que el contexto de autorización sea válido antes de ejecutar lógica de negocio. Recibe solicitudes de validación del HTTP Controllers vía IAuthValidation y consulta las claves públicas a Auth0 vía IPublicKeys para verificar los tokens JWT.
 
-### 4.3 Payment Controller
-Es un `component`, porque encapsula toda la lógica del flujo de pago con Webpay: iniciación de transacción, manejo del callback, idempotencia y auditoría. Recibe solicitudes del HTTP Controllers vía IIPaymentOps, inicia transacciones en Webpay vía IInitPayment, recibe confirmaciones de Webpay vía IConfirmPayment, persiste el estado del pago en la DB CityExpress vía IRepository,y publica mensajes de auditoría al RabbitMQ Client vía IPublishAudit.
+### 5.3 Payment Controller
+Es un `component`, porque encapsula toda la lógica del flujo de pago con Webpay: iniciación de transacción, manejo del callback, idempotencia y auditoría. Recibe solicitudes del HTTP Controllers vía IIPaymentOps, inicia transacciones en Webpay vía IInitPayment, recibe confirmaciones de Webpay vía IConfirmPayment, persiste el estado del pago en la DB CityExpress vía IRepository, y publica mensajes de auditoría al RabbitMQ Client vía IPublishAudit.
 
-### 4.4 Router de Paquetes
+### 5.4 Router de Paquetes
 Es una `interface`, porque define el contrato para consultar estados y gestionar la entrega de paquetes en tránsito. Recibe solicitudes del HTTP Controllers vía IPackageRouting y persiste o consulta datos en la DB CityExpress vía IRepository.
 
-### 4.5 Shipment Interface
-Es una `interface`, porque define el contrato para la creación de solicitudes de envío y el cálculo de cotizaciones. Recibe solicitudes del HTTP Controllers vía IShipmentOps y persiste los datos del envío en la DB CityExpress vía IRepository.
+### 5.5 Shipment Interface
+Es una `interface`, porque define el contrato para la creación de solicitudes de envío, el cálculo de cotizaciones —incluyendo la prima de seguro cuando el envío es asegurado (RF02) y el ajuste de precio según la prioridad de entrega elegida (RF03)— y la persistencia del envío. Recibe solicitudes del HTTP Controllers vía IShipmentOps y persiste los datos del envío en la DB CityExpress vía IRepository.
 
-## 5. CityExpress Consumer
-Es un `subsystem`, porque es un módulo especializado en el procesamiento asíncrono
-de eventos de mensajería, ruteo de paquetes y sincronización de tablas de distancia. Recibe mensajes del Broker RabbitMQ, persiste datos en la DB CityExpress vía IDatabaseWriter, y publica mensajes de auditoría y reenvío de
-vuelta al Broker vía IMessagePublisher.
+### 5.6 Subscription Controller
+Es un `component`, porque implementa la creación y consulta de suscripciones de entrega periódica (RF01). Recibe solicitudes del HTTP Controllers vía ISubscriptionOps, persiste la suscripción en la DB CityExpress vía IRepository, y arranca la ejecución del state machine de AWS Step Functions vía IStartExecution.
 
-### 5.1 RabbitMQ Client
-Es un `component`, porque es el módulo de bajo nivel encargado de mantener la conexión y el protocolo de comunicación con el broker externo. Consume mensajes del Broker RabbitMQ vía IMessagePublisher, entrega los eventos al Event Handler vía IEventConsumer, consulta tiempos de reintento al Retry Delay Fibonacci vía IRetryDelay, persiste datos en la DB CityExpress vía IDatabaseWriter, y recibe mensajes de auditoría del Payment Controller vía IPublishAudit para publicarlos al broker.
+## 6. CityExpress Consumer
+Es un `subsystem`, porque es un módulo especializado en el procesamiento asíncrono de eventos de mensajería, ruteo de paquetes y sincronización de tablas de distancia. Recibe mensajes del Broker RabbitMQ, persiste datos en la DB CityExpress vía IDatabaseWriter, publica mensajes de auditoría y reenvío de vuelta al Broker vía IMessagePublisher, y notifica eventos en tiempo real a Events Controller vía IEmitEvent.
 
-### 5.2 Event Handler
+### 6.1 RabbitMQ Client
+Es un `component`, porque es el módulo de bajo nivel encargado de mantener la conexión y el protocolo de comunicación con el broker externo. Consume mensajes del Broker RabbitMQ vía IMessagePublisher, entrega los eventos al Event Handler vía IEventConsumer, consulta tiempos de reintento al Retry Delay Fibonacci vía IRetryDelay, persiste datos en la DB CityExpress vía IDatabaseWriter, recibe mensajes de auditoría del Payment Controller vía IPublishAudit para publicarlos al broker, y notifica a Events Controller vía IEmitEvent cuando un paquete se recibe, se reenvía o se cobra un seguro (RF04).
+
+### 6.2 Event Handler
 Es una `interface`, porque es el procesador encargado de clasificar los mensajes recibidos (package-transit, distance-table, cost-update) y disparar las acciones correspondientes. Recibe eventos del RabbitMQ Client vía IEventConsumer.
 
-### 5.3 Retry Delay Fibonacci
+### 6.3 Retry Delay Fibonacci
 Es una `interface`, porque define el contrato para el cálculo de tiempos de espera exponenciales (Fibonacci) cuando falla el procesamiento de un evento. Provee la interfaz IRetryDelay al RabbitMQ Client.
 
-## 6. DB CityExpress
-Es la unidad de persistencia de datos (PostgreSQL) que encapsula el almacenamiento de paquetes, eventos, pagos, solicitudes de envío, rutas calculadas, tablas de distancia y jobs. Provee la interfaz IRepository a la
-CityExpress API y sus componentes, la interfaz IDatabaseWriter al CityExpress Consumer, y la interfaz IRepository al Route Calculator de AWS Lambda Workers.
+## 7. Events Controller
+Es un `component`, porque centraliza la emisión de eventos en tiempo real hacia el dashboard del Frontend SPA mediante Server-Sent Events (RF04). Recibe notificaciones del RabbitMQ Client vía IEmitEvent y solicitudes del HTTP Controllers vía IEventsOps, que cubre tanto la conexión de lectura del stream SSE como la emisión interna de eventos generados dentro de la propia CityExpress API. El stream hacia el Frontend SPA reutiliza el mismo camino que ya usa el resto de la API (IPublicApi / ISecureTraffic / IProxiedRequest / IForwardedRequest), por lo que no requiere una ruta de red aparte.
 
-## 7. Broker RabbitMQ
-Es un `system`, porque es la infraestructura de mensajería externa y compartida que coordina la red global de ciudades. Provee la interfaz IMessagePublisher al RabbitMQ Client para recibir mensajes publicados, y entrega mensajes al RabbitMQ Client (paquetes en tránsito, tablas de distancia, solicitudes de distance-table).
+## 8. DB CityExpress
+Es la unidad de persistencia de datos (PostgreSQL) que encapsula el almacenamiento de paquetes, eventos, pagos, solicitudes de envío, suscripciones, rutas calculadas, tablas de distancia y jobs. Provee la interfaz IRepository a la CityExpress API y sus componentes, la interfaz IDatabaseWriter al CityExpress Consumer, la interfaz IRepository al Route Calculator de AWS Lambda Workers, y la interfaz IRepository a las Lambdas de AWS Step Functions y a FastAPI Lambda de AWS CDK.
 
-## 8. Webpay (Transbank)
+## 9. Broker RabbitMQ
+Es un `system`, porque es la infraestructura de mensajería externa y compartida que coordina la red global de ciudades. Provee la interfaz IMessagePublisher al RabbitMQ Client para recibir mensajes publicados y entregar mensajes al RabbitMQ Client (paquetes en tránsito, tablas de distancia, solicitudes de distance-table), y provee la misma interfaz IMessagePublisher a Execute Delivery de AWS Step Functions, que publica paquetes de suscripción directamente sin pasar por el RabbitMQ Client.
+
+## 10. Webpay (Transbank)
 Es un `system`, porque es el servicio externo de procesamiento de pagos utilizado para validar transacciones en ambiente de pruebas. Provee la interfaz IInitPayment al Payment Controller para iniciar transacciones y la interfaz IConfirmPayment para confirmar el resultado del pago.
 
-## 9. JobsMaster
+## 11. JobsMaster
 Es un `system`, porque es un servicio independiente encargado de coordinar el cálculo asíncrono de rutas óptimas mediante workers. Expone una API HTTP REST que recibe órdenes de la CityExpress API vía IManageJobs e invoca a los Lambda Workers vía IInvokeLambda.
 
-### 9.1 Job API
+### 11.1 Job API
 Es un `component`, porque expone los endpoints REST del JobsMaster (POST /job, GET /job/:id, GET /heartbeat) para recibir y consultar trabajos de cálculo de rutas.
 
-### 9.2 Job Tracker
+### 11.2 Job Tracker
 Es un `component`, porque es el módulo encargado de registrar y mantener el estado de cada job (pending, running, completed, failed) a lo largo de su ciclo de vida.
 
-## 10. AWS Lambda Workers
+## 12. AWS Lambda Workers
 Es un `system`, porque agrupa las funciones serverless desplegadas en AWS Lambda mediante Serverless Framework, encargadas de ejecutar el cálculo de rutas de forma asíncrona y escalable.
 
-### 10.1 Route Calculator
+### 12.1 Route Calculator
 Es un `component`, porque implementa el algoritmo de cálculo de rutas óptimas (Dijkstra) para los criterios de distancia y precio. Es invocado por el JobsMaster vía IInvokeLambda y persiste los resultados en la DB CityExpress vía IRepository.
 
-## 11. New Relic Agent
+## 13. AWS Step Functions
+Es un `system`, porque es el orquestador serverless, desplegado con Serverless Framework, que ejecuta el flujo periódico de entregas con suscripción (RF01). El state machine `cityexpress-subscription-delivery` arranca en Check Subscription y expone IStartExecution como punto de entrada.
+
+### 13.1 Check Subscription
+Es un `component`, porque es la Lambda que verifica si una suscripción debe continuar según el budget disponible y la cantidad de paquetes ya enviados. Es el punto de entrada del state machine: recibe la ejecución vía IStartExecution —consumida tanto por Subscription Controller como por FastAPI Lambda de AWS CDK— y consulta o actualiza el estado de la suscripción en la DB CityExpress vía IRepository.
+
+### 13.2 Execute Delivery
+Es un `component`, porque es la Lambda que crea el paquete de la entrega periódica, actualiza los contadores de la suscripción en la DB CityExpress vía IRepository, y publica el paquete directamente al Broker RabbitMQ vía IMessagePublisher.
+
+## 14. New Relic Agent
 Es un `subsystem`, porque agrupa lógicamente las herramientas de observabilidad instaladas en el servidor. Se encarga de recolectar telemetría tanto del código como del hardware para enviarla a New Relic SaaS.
 
-### 11.1 Application Performance Monitoring (APM)
+### 14.1 Application Performance Monitoring (APM)
 Es un `subsystem`, porque es la herramienta encargada de recolectar métricas de tiempo de respuesta y errores de los controladores. Instrumenta el HTTP Controllers vía IAppMetrics y entrega los datos recolectados a New Relic SaaS vía ITelemetryData.
 
-### 11.2 Infrastructure Monitoring
+### 14.2 Infrastructure Monitoring
 Es un `subsystem`, porque es el encargado de vigilar el estado de salud de la instancia EC2 y la utilización de recursos de los contenedores. Entrega métricas de infraestructura a New Relic SaaS vía IInfraMetrics.
 
-## 12. New Relic SaaS
-Es un `system` externo gestionado en la nube que recibe, procesa y visualiza las métricas de toda la infraestructura y la aplicación. Recibe datos de performance del APM vía ITelemetryData y métricas de infraestructura del Infrastructure Monitoring vía IInfraMetrics.
+## 15. New Relic SaaS
+Es un `system` externo gestionado en la nube que recibe, procesa y visualiza las métricas de toda la infraestructura y la aplicación. Recibe datos de performance del APM vía ITelemetryData y métricas de infraestructura del Infrastructure Monitoring vía IInfraMetrics. Provee además IAlertRules a Alerting e ISyntheticChecks a Synthetic Monitoring.
 
-## 13. AWS ECR Instance
+### 15.1 Alerting
+Es un `subsystem`, porque agrupa las reglas de alerta configuradas en New Relic para detectar la falta de respuesta del frontend o del backend, y el aumento de errores 500 (RNF01). Consume datos de New Relic SaaS vía IAlertRules.
+
+### 15.2 Synthetic Monitoring
+Es un `subsystem`, porque agrupa las trazas funcionales sintéticas programadas contra la API principal, visualizadas en un dashboard (RNF04). Consume datos de New Relic SaaS vía ISyntheticChecks.
+
+## 16. AWS ECR Instance
 Es un `system`, porque es el registro de contenedores de AWS que almacena y distribuye las imágenes Docker de la aplicación. Contiene el Docker Image que se despliega en la instancia EC2 vía IImageDeployment.
 
 ## Interfaces principales del sistema
@@ -106,7 +132,7 @@ Es la interfaz que provee el Reverse Proxy Routing to API al HTTP Controllers, r
 Es la interfaz que provee el Auth Validator al HTTP Controllers para la verificación de tokens JWT antes de ejecutar lógica de negocio.
 
 ### IRepository
-Es la interfaz que provee la DB CityExpress a la CityExpress API (Router de Paquetes, Shipment Interface, Payment Controller) y al Route Calculator para operaciones de lectura y escritura de datos.
+Es la interfaz que provee la DB CityExpress a la CityExpress API (Router de Paquetes, Shipment Interface, Payment Controller, Subscription Controller), al Route Calculator, a las Lambdas de AWS Step Functions (Check Subscription y Execute Delivery) y a FastAPI Lambda de AWS CDK, para operaciones de lectura y escritura de datos.
 
 ### IManageJobs
 Es la interfaz REST que provee el JobsMaster a la CityExpress API para crear jobs de cálculo de rutas y consultar su estado.
@@ -115,7 +141,28 @@ Es la interfaz REST que provee el JobsMaster a la CityExpress API para crear job
 Es la interfaz que provee AWS Lambda Workers al JobsMaster para la invocación de funciones de cálculo de rutas.
 
 ### IMessagePublisher
-Es la interfaz que provee el Broker RabbitMQ al RabbitMQ Client para la publicación y consumo de mensajes en el sistema de mensajería distribuido.
+Es la interfaz que provee el Broker RabbitMQ al RabbitMQ Client y a Execute Delivery (AWS Step Functions) para la publicación y consumo de mensajes en el sistema de mensajería distribuido.
 
 ### IPublishAudit
 Es la interfaz que provee el RabbitMQ Client al Payment Controller para publicar mensajes de auditoría de pagos (payment-status) al broker.
+
+### IStartExecution
+Es la interfaz que provee AWS Step Functions, con entrada en Check Subscription, para arrancar una ejecución del state machine de suscripciones. La consumen Subscription Controller (CityExpress API) y FastAPI Lambda (AWS CDK).
+
+### ISubscriptionOps
+Es la interfaz que provee Subscription Controller al HTTP Controllers para la creación y consulta de suscripciones de entrega periódica (RF01).
+
+### IEventsOps
+Es la interfaz que provee Events Controller al HTTP Controllers, para la conexión SSE de lectura (GET /events) y la emisión interna de eventos (POST /events/emit) (RF04).
+
+### IEmitEvent
+Es la interfaz que provee Events Controller al RabbitMQ Client, para notificar eventos en tiempo real (paquete recibido, reenviado, o seguro cobrado) que se transmiten al dashboard vía SSE.
+
+### IProxyIntegration
+Es la interfaz que provee FastAPI Lambda a API Gateway (CDK) mediante integración proxy Lambda, para reenviar toda petición HTTP entrante.
+
+### IAlertRules
+Es la interfaz que provee New Relic SaaS a Alerting, con las condiciones de alerta por caída de servicio o aumento de errores 500 (RNF01).
+
+### ISyntheticChecks
+Es la interfaz que provee New Relic SaaS a Synthetic Monitoring, con los resultados de las trazas sintéticas programadas contra la API principal (RNF04).
