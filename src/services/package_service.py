@@ -5,32 +5,14 @@ import uuid
 import os
 import pika
 import ssl
-import requests
 
 from src.models.package import Package
 from src.models.package_event import PackageEvent
 from src.models.city_connection import CityConnection
 from src.rabbitmq.publisher import PRIORITY_MAP, publicar_mensaje
+from src.sse import emit_event
 
 CODIGO_CIUDAD = os.getenv("CODIGO_CIUDAD", "LSN").upper()
-
-# Este servicio corre tanto en Lambda (detrás de api.quackpackagemo.me) como en el EC2
-# (detrás de backend.quackpackagemo.me). El feed SSE solo vive en el proceso del EC2,
-# así que emitimos por HTTP en vez de llamar emit_event() en memoria (que en Lambda
-# escribiría en un proceso que nadie está escuchando). Mismo patrón que
-# src/rabbitmq/consumer.py usa con emit_to_api().
-EVENTS_API_URL = os.getenv("EVENTS_API_URL", "https://backend.quackpackagemo.me")
-
-
-def emit_event(event_type: str, payload: dict):
-    try:
-        requests.post(
-            f"{EVENTS_API_URL}/events/emit",
-            json={"event": event_type, "data": payload},
-            timeout=2,
-        )
-    except Exception:
-        pass
 
 
 def _get_rabbitmq_channel():
